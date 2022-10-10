@@ -13,6 +13,8 @@ library(reshape2)
 library(date)
 library(zoo)
 library(lubridate)
+library(readxl)
+library(measurements)
 
 ##### 2016-2021 data formatting and cleaning #####
 
@@ -210,17 +212,59 @@ ggplot(data=billybarrdaily, aes(x=doy,y=AvgSnowDepth))+
 write.csv(billybarrdaily, "billybarr_2016-2021_corrected.csv")
 
 
-##### Merging 2016-2021 data with earlier data #####
+##### Merging 2016-2021 data with earlier data from Stemkovski et al. 2020 paper #####
+# modified code from Michael Stemkovski
 
 # read in data
-earlydata<-read.csv("allclimatedata_oct2016.csv")
-billy_late<-read.csv("billybarr_2016-2021_corrected.csv")
+read.excel <- function(...) return(as.data.frame(read_excel(...)))
+weather_raw <- read.excel("aawx_Michael.xlsx") #this came from billy barr's weather station
+bare_ground <- read.csv("billy_barr_bare_ground.csv") #this came from billy barr's observations too
 
-# subset earlier data to just include billy barr station and to remove partial 2016 data
-billy_early<-filter(earlydata, Name == "billybarr" & Year != 2016)
+# basic cleaning
+bare_ground$date_bare_ground<-paste(bare_ground$year,bare_ground$month_day_bare_ground,sep="-")
+bare_ground$doy <- yday(bare_ground$date_bare_ground)
+weather <- weather_raw[3:nrow(weather_raw),]
+colnames(weather) <- c("year","month","day","temp_min","temp_max","snow_cm","snow_water_in","snow_depth_cm","rain_in")
+weather$snow_water_in <- conv_unit(as.numeric(weather$snow_water_in),"inch","cm")
+weather$rain_in <- conv_unit(as.numeric(weather$rain_in),"inch","cm")
+colnames(weather) <- c("water_year","wy_month","day","temp_min","temp_max","snow_cm","snow_water_cm","snow_depth_cm","rain_cm")
+weather$rain_cm <- sapply(weather$rain_cm,function(x) ifelse(is.na(x), return(0), return(x)))
+
+# date reformatting
+get.year <- function(water_year,wy_month){
+  if(wy_month >= 9 & wy_month <= 12){
+    year <- paste("20",substr(water_year,nchar(water_year)-3,nchar(water_year)-2),sep="")
+  } else {
+    year <- paste("20",substr(water_year,nchar(water_year)-1,nchar(water_year)),sep="")
+  }
+  return(as.numeric(year))
+}
+
+head(weather,20)
+str(weather)
+
+month_letters <- toupper(letters[1:12])
+month_nums <- c(9:12,1:8)
+
+month_letters
+month_nums
+
+weather$month <- sapply(weather$wy_month, function(x) return(month_nums[which(month_letters == x)]), USE.NAMES = F)
+weather$year <- apply(weather[,c("water_year","month")], 1, function(x) get.year(x[1], as.numeric(x[2])))
+weather$date <- ymd(apply(weather[,c("year","month","day")], 1, function(x) paste(x[1],x[2],x[3],sep="-")))
+
+# check for presence of all days in 2009-2018
+days_check<-weather %>% filter(year>=2009) %>% group_by(year) %>% summarise(days=n())
+# December 2018 missing
+
+# read in later data
+billy_late<-read.csv("billybarr_2016-2021_corrected.csv")
+# subset to just include data from December 2018 and 2019-2020
+dec18<-filter(billy_late,year==2018 & month==12)
+weather19_20<-filter(billy_late,year==2019 | year==2020)
+weather_late<-bind_rows(dec18,weather19_20)
 
 # add water year as column to billy_late data frame
-
 # function to calculate water year
 wtr_yr <- function(dates, start_month = 10) {
   # Convert possible character vector into date
@@ -234,47 +278,80 @@ wtr_yr <- function(dates, start_month = 10) {
 }
 
 # convert dates to standard format
-billy_late$date<-mdy(billy_late$date)
+weather_late$date<-mdy(weather_late$date)
 # run function and add output to data frame
-billy_late$water_year<-wtr_yr(billy_late$date)
+weather_late$water_year<-wtr_yr(weather_late$date)
 
 # remove columns from late data not contained in early
-billy_late<-billy_late[,-c(5,13)]
+weather_late_formerge<-weather_late[,-c(5,8:11,13)]
+# rename columns
+names(weather_late_formerge)[5:6]<-c("temp_max","temp_min")
 
-# remove not needed columns from early data frame
-billy_early<-billy_early[,-c(1:7,12,13,15,16,19)]
-# rename and reorder columns
-names(billy_early)[c(1:4,8:11)]<-c("month","day","year","date","MaxAirTemp","MinAirTemp","AvgAirTemp","GDD_calc")
-# format date
-billy_early$date<-mdy(billy_early$date)
+# format older weather data frame for merging
+weather$water_year<-substr(weather$water_year,1,4)
+weather2<-weather[,-c(2)]
+weather2$day<-as.integer(weather2$day)
+weather2$water_year<-as.numeric(weather2$water_year)
+weather2$temp_max<-as.numeric(weather2$temp_max)
+weather2$temp_min<-as.numeric(weather2$temp_min)
+# calculate GDD
+weather2$GDD_calc<-(weather2$temp_max+weather2$temp_min)/2
 # reorder columns
-billy_early<-billy_early[, c(4,1:3,8:10,7,5,6,11,12)]
+weather2<-weather2[,c(11,9,2,10,1,4,3,5:8,12)]
+
+# format late dataset for merging
+weather_late_formerge$snow_cm<-NA
+weather_late_formerge$snow_water_cm<-NA
+weather_late_formerge$snow_depth_cm<-NA
+weather_late_formerge$rain_cm<-NA
+weather_late_formerge<-weather_late_formerge[,c(1:4,8,5:6,9:12,7)]
 
 # merge data frames
-billy_all<-bind_rows(billy_early,billy_late)
+weather_all<-bind_rows(weather2,weather_late_formerge)
 
-# write out file
-write.csv(billy_all,"billybarr_2009-2021.csv", row.names = FALSE)
+# check for presence of all days in target years
+days_check<-weather_all %>% filter(year>=2007) %>% group_by(year) %>% summarise(days=n())
+# all there!
+
+# save data
+write.csv(filter(weather_all,year>=2007),"weather_billybarr_2007-2020.csv",row.names = FALSE)
+
+
 
 
 
 ##### Create climate summaries needed for bee sex ratio analyses ##### 
 
 # read in data
-climate<-read.csv("billybarr_2009-2021.csv")
+climate<-read.csv("weather_billybarr_2007-2020.csv")
 
-# target variables
+# target variables for 2008-2018
 # May-September cumulative precipitation
 # May-September degree days above 0 C
 # October-April winter snow cover
+# Date of bare ground
+
+clim_target<-filter(climate,year>=2008 & year<=2018)
 
 # create column to use in calculating accumulated degree days above 0
-climate$DD_abovezero<-ifelse(climate$GDD_calc>0, climate$GDD_calc, 0)
+clim_target$DD_abovezero<-ifelse(clim_target$GDD_calc>0, clim_target$GDD_calc, 0)
 
-# check which months have data
-date_check<-climate %>% group_by(year, month) %>% summarise(count=n())
-date_check2<-date_check %>% group_by(year) %>% summarise(count_month=n())
+# calculate May-September cumulative rainfall and degree days above 0
+clim_summary<-clim_target %>% filter(month>=5 & month<=9) %>% group_by(year) %>% summarise(accum_summer_precip_cm=sum(rain_cm),accum_summer_dd=sum(DD_abovezero))
 
-# calculate May-September cumulative precip and degree days above 0
-accumdd<-climate %>% filter(month>=5 & month<=9) %>% group_by(year) %>% summarise(accum_summer_precip=sum(Precip),accum_summer_dd=sum(DD_abovezero))
+# winter snow cover
+snow<-clim_target %>% filter(month %in% c(10,11,12,1,2,3,4)) %>% group_by(water_year) %>% summarise(accum_winter_snowfall_cm=sum(snow_cm),mean_snow_depth_cm=mean(snow_depth_cm))
+snow<-snow[-13,]
+# change water year column to year for sake of merging with other data set
+names(snow)[1]<-"year"
+snow$year<-snow$year+1
 
+# merge data frames
+clim_summ_all<-left_join(clim_summary,snow,by="year")
+
+# add bare ground data
+bare_ground<-read.csv("billy_barr_bare_ground.csv")
+bare_ground$date_bare_ground<-paste(bare_ground$year,bare_ground$month_day_bare_ground,sep="-")
+clim_summ_all<-left_join(clim_summ_all,bare_ground[,c(2,5,8)])
+
+write.csv(clim_summ_all,"weather_summaries_billybarr_forsexratios.csv",row.names = FALSE)
