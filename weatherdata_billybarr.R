@@ -1,4 +1,5 @@
-# Code for calculating daily weather summaries and correcting errors
+# Code for calculating daily weather summaries, correcting errors,
+# and merging with earlier billy barr station data
 # For billy bar weather station data, 2016-2021
 # Melanie Kazenel
 # Created 2022-10-07
@@ -13,7 +14,9 @@ library(date)
 library(zoo)
 library(lubridate)
 
-#Upload all data
+##### 2016-2021 data formatting and cleaning #####
+
+# read in data
 data <- read.csv("billybarr_2016-2021.csv")
 
 # subset to just include variables of interest
@@ -204,6 +207,74 @@ ggplot(data=billybarrdaily, aes(x=doy,y=AvgSnowDepth))+
   geom_point() +
   facet_wrap(~year)
 
+write.csv(billybarrdaily, "billybarr_2016-2021_corrected.csv")
 
 
-write.csv(billybarrdaily, "billybarrdaily_corrected.csv")
+##### Merging 2016-2021 data with earlier data #####
+
+# read in data
+earlydata<-read.csv("allclimatedata_oct2016.csv")
+billy_late<-read.csv("billybarr_2016-2021_corrected.csv")
+
+# subset earlier data to just include billy barr station and to remove partial 2016 data
+billy_early<-filter(earlydata, Name == "billybarr" & Year != 2016)
+
+# add water year as column to billy_late data frame
+
+# function to calculate water year
+wtr_yr <- function(dates, start_month = 10) {
+  # Convert possible character vector into date
+  d1 = as.Date(dates)
+  # Year offset
+  offset = ifelse(as.integer(format(d1, "%m")) < start_month, 0, 1)
+  # Water year
+  adj.year = as.integer(format(d1, "%Y")) + offset
+  # Return the water year
+  return(adj.year)
+}
+
+# convert dates to standard format
+billy_late$date<-mdy(billy_late$date)
+# run function and add output to data frame
+billy_late$water_year<-wtr_yr(billy_late$date)
+
+# remove columns from late data not contained in early
+billy_late<-billy_late[,-c(5,13)]
+
+# remove not needed columns from early data frame
+billy_early<-billy_early[,-c(1:7,12,13,15,16,19)]
+# rename and reorder columns
+names(billy_early)[c(1:4,8:11)]<-c("month","day","year","date","MaxAirTemp","MinAirTemp","AvgAirTemp","GDD_calc")
+# format date
+billy_early$date<-mdy(billy_early$date)
+# reorder columns
+billy_early<-billy_early[, c(4,1:3,8:10,7,5,6,11,12)]
+
+# merge data frames
+billy_all<-bind_rows(billy_early,billy_late)
+
+# write out file
+write.csv(billy_all,"billybarr_2009-2021.csv", row.names = FALSE)
+
+
+
+##### Create climate summaries needed for bee sex ratio analyses ##### 
+
+# read in data
+climate<-read.csv("billybarr_2009-2021.csv")
+
+# target variables
+# May-September cumulative precipitation
+# May-September degree days above 0 C
+# October-April winter snow cover
+
+# create column to use in calculating accumulated degree days above 0
+climate$DD_abovezero<-ifelse(climate$GDD_calc>0, climate$GDD_calc, 0)
+
+# check which months have data
+date_check<-climate %>% group_by(year, month) %>% summarise(count=n())
+date_check2<-date_check %>% group_by(year) %>% summarise(count_month=n())
+
+# calculate May-September cumulative precip and degree days above 0
+accumdd<-climate %>% filter(month>=5 & month<=9) %>% group_by(year) %>% summarise(accum_summer_precip=sum(Precip),accum_summer_dd=sum(DD_abovezero))
+
