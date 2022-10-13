@@ -13,6 +13,7 @@ library(dplyr)
 library(corrplot)
 library(car)
 library(MuMIn)
+library(piecewiseSEM)
 
 # set wd
 setwd("~/Documents/*RMBLPhenology/Projects/BeeSexRatios/Analyses")
@@ -128,7 +129,7 @@ correlations_climate<-cor(beedatafocal[,c(32:36,38:43,45)])
 corrplot(correlations_climate)
 # variables with low pairwise correlations to focus on:
 
-##### GLMMs: Across species, how do female/male counts vary with individual climate? (lme4 package) #####
+##### GLMMs: Across species, how do female/male counts vary with individual climate variables, considering a large list? (lme4 package) #####
 
 # previous year's snowmelt date -- positive relationship
 m1 <- glmer(sex_binom ~ prev_yr_doy_bare_ground + (1|year/site) + (1|genus_species), data = beedatafocal, family = binomial)
@@ -238,14 +239,6 @@ beedatafocal$prev_yr_accum_summer_precip_cm_z<-scale(beedatafocal$prev_yr_accum_
 beedatafocal$prev_yr_doy_bare_ground_z<-scale(beedatafocal$prev_yr_doy_bare_ground, center = TRUE, scale = TRUE)
 
 
-
-
-
-
-
-
-
-
 # construct models
 # accum_summer_precip_cm_z
 m1 <- glmer(sex_binom ~ accum_summer_precip_cm_z + (1|year/site) + (1|genus_species), data = beedatafocal, family = binomial)
@@ -289,13 +282,17 @@ m13 <- glmer(sex_binom ~ accum_summer_precip_cm_z + doy_bare_ground_z + prev_yr_
 # doy_bare_ground_z + prev_yr_accum_summer_precip_cm_z + prev_yr_doy_bare_ground_z
 m14 <- glmer(sex_binom ~ doy_bare_ground_z + prev_yr_accum_summer_precip_cm_z + prev_yr_doy_bare_ground_z + (1|year/site) + (1|genus_species), data = beedatafocal, family = binomial)
 
-aicc<-AICc(m1,m2,m3,m4,m5,m6,m7,m8,m9,m10,m11,m12,m13,m14)
+# all climate variables
+m15 <- glmer(sex_binom ~ doy_bare_ground_z + accum_summer_precip_cm_z + prev_yr_accum_summer_precip_cm_z + prev_yr_doy_bare_ground_z + (1|year/site) + (1|genus_species), data = beedatafocal, family = binomial)
+
+aicc<-AICc(m1,m2,m3,m4,m5,m6,m7,m8,m9,m10,m11,m12,m13,m14,m15)
 aicc<-arrange(aicc,AICc)
 aicc$deltaAICc<-aicc$AICc-AICc(m4)
 
 # df     AICc  deltaAICc         Model
 # m4   5 12089.19  0.0000000     prev_yr_doy_bare_ground_z
 summary(m4)
+rsquared(m4)
 # m7   6 12089.58  0.3859968     accum_summer_precip_cm_z + prev_yr_doy_bare_ground_z 
 summary(m7)
 vif(m7) # ok
@@ -311,6 +308,9 @@ vif(m9) # ok
 # m12  7 12091.50  2.3117760     accum_summer_precip_cm_z + prev_yr_accum_summer_precip_cm_z + prev_yr_doy_bare_ground_z
 summary(m12)
 vif(m12) # ok
+# m15  8 12092.47  3.2788203
+summary(m15)
+vif(m15)
 # m14  7 12093.11  3.9231739     doy_bare_ground_z + prev_yr_accum_summer_precip_cm_z +  prev_yr_doy_bare_ground_z
 summary(m14)
 vif(m14) # ok
@@ -322,12 +322,18 @@ vif(m14) # ok
 # m5   6 12098.76  9.5663272
 # m11  7 12099.67 10.4777415
 
+# graph results from best model
+ggplot(beedatafocal, aes(y = sex_binom, x = prev_yr_doy_bare_ground)) +
+  geom_point() +
+  theme_classic(base_size = 15) +
+  geom_smooth(method = glm, method.args= list(family="binomial")) +
+  xlab("Previous year's snowmelt date (day of year)") + ylab("Sex \n(female=1, male=0)")
 
 
 
-#### GLMMs: For each species individually, how does climate relate to female/male counts? #####
+##### GLMMs: For each species individually, how does climate relate to female/male counts? #####
 species_list<-unique(beedatafocal$genus_species)
-output<-matrix(nrow=1,ncol=17,byrow=TRUE,dimnames=list(c("row1"),c("model","df","AICc","pvalue1","pvalue2","pvalue3","slope1","slope2","slope3","se1","se2","se3","delta_AICc","vif1","vif2","vif3","genus_species")))
+output<-matrix(nrow=1,ncol=21,byrow=TRUE,dimnames=list(c("row1"),c("model","df","AICc","pvalue1","pvalue2","pvalue3","pvalue4","slope1","slope2","slope3","slope4","se1","se2","se3","se4","delta_AICc","vif1","vif2","vif3","vif4","genus_species")))
 
 for (i in 1:length(species_list)){
   data<-filter(beedatafocal, genus_species==species_list[i])
@@ -375,115 +381,128 @@ for (i in 1:length(species_list)){
   # doy_bare_ground_z + prev_yr_accum_summer_precip_cm_z + prev_yr_doy_bare_ground_z
   m14 <- glmer(sex_binom ~ doy_bare_ground_z + prev_yr_accum_summer_precip_cm_z + prev_yr_doy_bare_ground_z + (1|year/site) , data = data, family = binomial)
   
-  aicc<-AICc(m1,m2,m3,m4,m5,m6,m7,m8,m9,m10,m11,m12,m13,m14)
+  # all climate variables
+  m15 <- glmer(sex_binom ~ doy_bare_ground_z + accum_summer_precip_cm_z + prev_yr_accum_summer_precip_cm_z + prev_yr_doy_bare_ground_z + (1|year/site) , data = data, family = binomial)
+  
+  aicc<-AICc(m1,m2,m3,m4,m5,m6,m7,m8,m9,m10,m11,m12,m13,m14,m15)
   aicc<- tibble::rownames_to_column(aicc, "model")
   aicc$pvalue1<-NA
   aicc$pvalue2<-NA
   aicc$pvalue3<-NA
+  aicc$pvalue4<-NA
   aicc$slope1<-NA
   aicc$slope2<-NA
   aicc$slope3<-NA
+  aicc$slope4<-NA
   aicc$se1<-NA
   aicc$se2<-NA
   aicc$se3<-NA
+  aicc$se4<-NA
   aicc$vif1<-NA
   aicc$vif2<-NA
   aicc$vif3<-NA
+  aicc$vif4<-NA
   
   df<-data.frame(summary(m1)[["coefficients"]])
   df<-df[-1,]
   aicc[1,4:sum(length(df$Estimate)+3)]<-df[,4]
-  aicc[1,7:sum(length(df$Estimate)+6)]<-df[,1]
-  aicc[1,10:sum(length(df$Estimate)+9)]<-df[,2]
+  aicc[1,8:sum(length(df$Estimate)+7)]<-df[,1]
+  aicc[1,12:sum(length(df$Estimate)+11)]<-df[,2]
   
   df<-data.frame(summary(m2)[["coefficients"]])
   df<-df[-1,]
   aicc[2,4:sum(length(df$Estimate)+3)]<-df[,4]
-  aicc[2,7:sum(length(df$Estimate)+6)]<-df[,1]
-  aicc[2,10:sum(length(df$Estimate)+9)]<-df[,2]
+  aicc[2,8:sum(length(df$Estimate)+7)]<-df[,1]
+  aicc[2,12:sum(length(df$Estimate)+11)]<-df[,2]
   
   df<-data.frame(summary(m3)[["coefficients"]])
   df<-df[-1,]
   aicc[3,4:sum(length(df$Estimate)+3)]<-df[,4]
-  aicc[3,7:sum(length(df$Estimate)+6)]<-df[,1]
-  aicc[3,10:sum(length(df$Estimate)+9)]<-df[,2]
+  aicc[3,8:sum(length(df$Estimate)+7)]<-df[,1]
+  aicc[3,12:sum(length(df$Estimate)+11)]<-df[,2]
   
   df<-data.frame(summary(m4)[["coefficients"]])
   df<-df[-1,]
   aicc[4,4:sum(length(df$Estimate)+3)]<-df[,4]
-  aicc[4,7:sum(length(df$Estimate)+6)]<-df[,1]
-  aicc[4,10:sum(length(df$Estimate)+9)]<-df[,2]
+  aicc[4,8:sum(length(df$Estimate)+7)]<-df[,1]
+  aicc[4,12:sum(length(df$Estimate)+11)]<-df[,2]
   
   df<-data.frame(summary(m5)[["coefficients"]])
   df<-df[-1,]
   aicc[5,4:sum(length(df$Estimate)+3)]<-df[,4]
-  aicc[5,7:sum(length(df$Estimate)+6)]<-df[,1]
-  aicc[5,10:sum(length(df$Estimate)+9)]<-df[,2]
-  aicc[5,13:sum(length(df$Estimate)+12)]<-data.frame(vif(m5))[,1]
+  aicc[5,8:sum(length(df$Estimate)+7)]<-df[,1]
+  aicc[5,12:sum(length(df$Estimate)+11)]<-df[,2]
+  aicc[5,16:sum(length(df$Estimate)+15)]<-data.frame(vif(m5))[,1]
 
   df<-data.frame(summary(m6)[["coefficients"]])
   df<-df[-1,]
   aicc[6,4:sum(length(df$Estimate)+3)]<-df[,4]
-  aicc[6,7:sum(length(df$Estimate)+6)]<-df[,1]
-  aicc[6,10:sum(length(df$Estimate)+9)]<-df[,2]
-  aicc[6,13:sum(length(df$Estimate)+12)]<-data.frame(vif(m6))[,1]
+  aicc[6,8:sum(length(df$Estimate)+7)]<-df[,1]
+  aicc[6,12:sum(length(df$Estimate)+11)]<-df[,2]
+  aicc[6,16:sum(length(df$Estimate)+15)]<-data.frame(vif(m6))[,1]
   
   df<-data.frame(summary(m7)[["coefficients"]])
   df<-df[-1,]
   aicc[7,4:sum(length(df$Estimate)+3)]<-df[,4]
-  aicc[7,7:sum(length(df$Estimate)+6)]<-df[,1]
-  aicc[7,10:sum(length(df$Estimate)+9)]<-df[,2]
-  aicc[7,13:sum(length(df$Estimate)+12)]<-data.frame(vif(m7))[,1]
+  aicc[7,8:sum(length(df$Estimate)+7)]<-df[,1]
+  aicc[7,12:sum(length(df$Estimate)+11)]<-df[,2]
+  aicc[7,16:sum(length(df$Estimate)+15)]<-data.frame(vif(m7))[,1]
   
   df<-data.frame(summary(m8)[["coefficients"]])
   df<-df[-1,]
   aicc[8,4:sum(length(df$Estimate)+3)]<-df[,4]
-  aicc[8,7:sum(length(df$Estimate)+6)]<-df[,1]
-  aicc[8,10:sum(length(df$Estimate)+9)]<-df[,2]
-  aicc[8,13:sum(length(df$Estimate)+12)]<-data.frame(vif(m8))[,1]
+  aicc[8,8:sum(length(df$Estimate)+7)]<-df[,1]
+  aicc[8,12:sum(length(df$Estimate)+11)]<-df[,2]
+  aicc[8,16:sum(length(df$Estimate)+15)]<-data.frame(vif(m8))[,1]
   
   df<-data.frame(summary(m9)[["coefficients"]])
   df<-df[-1,]
   aicc[9,4:sum(length(df$Estimate)+3)]<-df[,4]
-  aicc[9,7:sum(length(df$Estimate)+6)]<-df[,1]
-  aicc[9,10:sum(length(df$Estimate)+9)]<-df[,2]
-  aicc[9,13:sum(length(df$Estimate)+12)]<-data.frame(vif(m9))[,1]
+  aicc[9,8:sum(length(df$Estimate)+7)]<-df[,1]
+  aicc[9,12:sum(length(df$Estimate)+11)]<-df[,2]
+  aicc[9,16:sum(length(df$Estimate)+15)]<-data.frame(vif(m9))[,1]
   
   df<-data.frame(summary(m10)[["coefficients"]])
   df<-df[-1,]
   aicc[10,4:sum(length(df$Estimate)+3)]<-df[,4]
-  aicc[10,7:sum(length(df$Estimate)+6)]<-df[,1]
-  aicc[10,10:sum(length(df$Estimate)+9)]<-df[,2]
-  aicc[10,13:sum(length(df$Estimate)+12)]<-data.frame(vif(m10))[,1]
+  aicc[10,8:sum(length(df$Estimate)+7)]<-df[,1]
+  aicc[10,12:sum(length(df$Estimate)+11)]<-df[,2]
+  aicc[10,16:sum(length(df$Estimate)+15)]<-data.frame(vif(m10))[,1]
   
   df<-data.frame(summary(m11)[["coefficients"]])
   df<-df[-1,]
   aicc[11,4:sum(length(df$Estimate)+3)]<-df[,4]
-  aicc[11,7:sum(length(df$Estimate)+6)]<-df[,1]
-  aicc[11,10:sum(length(df$Estimate)+9)]<-df[,2]
-  aicc[11,13:sum(length(df$Estimate)+12)]<-data.frame(vif(m11))[,1]
+  aicc[11,8:sum(length(df$Estimate)+7)]<-df[,1]
+  aicc[11,12:sum(length(df$Estimate)+11)]<-df[,2]
+  aicc[11,16:sum(length(df$Estimate)+15)]<-data.frame(vif(m11))[,1]
   
   df<-data.frame(summary(m12)[["coefficients"]])
   df<-df[-1,]
   aicc[12,4:sum(length(df$Estimate)+3)]<-df[,4]
-  aicc[12,7:sum(length(df$Estimate)+6)]<-df[,1]
-  aicc[12,10:sum(length(df$Estimate)+9)]<-df[,2]
-  aicc[12,13:sum(length(df$Estimate)+12)]<-data.frame(vif(m12))[,1]
+  aicc[12,8:sum(length(df$Estimate)+7)]<-df[,1]
+  aicc[12,12:sum(length(df$Estimate)+11)]<-df[,2]
+  aicc[12,16:sum(length(df$Estimate)+15)]<-data.frame(vif(m12))[,1]
   
   df<-data.frame(summary(m13)[["coefficients"]])
   df<-df[-1,]
   aicc[13,4:sum(length(df$Estimate)+3)]<-df[,4]
-  aicc[13,7:sum(length(df$Estimate)+6)]<-df[,1]
-  aicc[13,10:sum(length(df$Estimate)+9)]<-df[,2]
-  aicc[13,13:sum(length(df$Estimate)+12)]<-data.frame(vif(m13))[,1]
+  aicc[13,8:sum(length(df$Estimate)+7)]<-df[,1]
+  aicc[13,12:sum(length(df$Estimate)+11)]<-df[,2]
+  aicc[13,16:sum(length(df$Estimate)+15)]<-data.frame(vif(m13))[,1]
   
   df<-data.frame(summary(m14)[["coefficients"]])
   df<-df[-1,]
   aicc[14,4:sum(length(df$Estimate)+3)]<-df[,4]
-  aicc[14,7:sum(length(df$Estimate)+6)]<-df[,1]
-  aicc[14,10:sum(length(df$Estimate)+9)]<-df[,2]
-  aicc[14,13:sum(length(df$Estimate)+12)]<-data.frame(vif(m14))[,1]
+  aicc[14,8:sum(length(df$Estimate)+7)]<-df[,1]
+  aicc[14,12:sum(length(df$Estimate)+11)]<-df[,2]
+  aicc[14,16:sum(length(df$Estimate)+15)]<-data.frame(vif(m14))[,1]
   
+  df<-data.frame(summary(m15)[["coefficients"]])
+  df<-df[-1,]
+  aicc[15,4:sum(length(df$Estimate)+3)]<-df[,4]
+  aicc[15,8:sum(length(df$Estimate)+7)]<-df[,1]
+  aicc[15,12:sum(length(df$Estimate)+11)]<-df[,2]
+  aicc[15,16:sum(length(df$Estimate)+15)]<-data.frame(vif(m15))[,1]
   
   aicc<-arrange(aicc,AICc)
   aicc$delta_AICc<-aicc$AICc-min(aicc$AICc)
@@ -495,14 +514,85 @@ for (i in 1:length(species_list)){
 output<-output[-1,]
 
 # add column listing predictors in each model to "output" df
-aicc<-AICc(m1,m2,m3,m4,m5,m6,m7,m8,m9,m10,m11,m12,m13,m14)
+aicc<-AICc(m1,m2,m3,m4,m5,m6,m7,m8,m9,m10,m11,m12,m13,m14,m15)
 aicc<- tibble::rownames_to_column(aicc, "model")
-aicc$predictors<-c("accum_summer_precip_cm_z", "doy_bare_ground_z", "prev_yr_accum_summer_precip_cm_z", "prev_yr_doy_bare_ground_z", "accum_summer_precip_cm_z + doy_bare_ground_z", "accum_summer_precip_cm_z + prev_yr_accum_summer_precip_cm_z", "accum_summer_precip_cm_z + prev_yr_doy_bare_ground_z", "doy_bare_ground_z + prev_yr_accum_summer_precip_cm_z", "doy_bare_ground_z + prev_yr_doy_bare_ground_z", "prev_yr_accum_summer_precip_cm_z + prev_yr_doy_bare_ground_z", "accum_summer_precip_cm_z + doy_bare_ground_z + prev_yr_accum_summer_precip_cm_z", "accum_summer_precip_cm_z + prev_yr_accum_summer_precip_cm_z + prev_yr_doy_bare_ground_z", "accum_summer_precip_cm_z + doy_bare_ground_z + prev_yr_doy_bare_ground_z", "doy_bare_ground_z + prev_yr_accum_summer_precip_cm_z + prev_yr_doy_bare_ground_z")
+aicc$predictors<-c("accum_summer_precip_cm_z", "doy_bare_ground_z", "prev_yr_accum_summer_precip_cm_z", "prev_yr_doy_bare_ground_z", "accum_summer_precip_cm_z + doy_bare_ground_z", "accum_summer_precip_cm_z + prev_yr_accum_summer_precip_cm_z", "accum_summer_precip_cm_z + prev_yr_doy_bare_ground_z", "doy_bare_ground_z + prev_yr_accum_summer_precip_cm_z", "doy_bare_ground_z + prev_yr_doy_bare_ground_z", "prev_yr_accum_summer_precip_cm_z + prev_yr_doy_bare_ground_z", "accum_summer_precip_cm_z + doy_bare_ground_z + prev_yr_accum_summer_precip_cm_z", "accum_summer_precip_cm_z + prev_yr_accum_summer_precip_cm_z + prev_yr_doy_bare_ground_z", "accum_summer_precip_cm_z + doy_bare_ground_z + prev_yr_doy_bare_ground_z", "doy_bare_ground_z + prev_yr_accum_summer_precip_cm_z + prev_yr_doy_bare_ground_z","all predictors")
 aicc<-aicc[,-c(2:3)]
 output<-left_join(output,aicc,by="model")
 
 write.csv(output,"species_glmms_climate_sex_ratios.csv", row.names = FALSE)
 
 
+
+
+
+##### For individual species: graphs of relationships with different climate variables #####
+results<-read.csv("species_glmms_climate_sex_ratios.csv")
+bestmodels<-filter(results,delta_AICc==0)
+slopes_long<-pivot_longer(bestmodels[,c(21,1,22,8:11)],cols=4:7,values_to="slope")
+names(slopes_long)[4]<-"term"
+slopes_long$term<-substr(slopes_long$term,6,6)
+
+se_long<-pivot_longer(bestmodels[,c(21,1,22,12:15)],cols=4:7,values_to="se")
+names(se_long)[4]<-"term"
+se_long$term<-substr(se_long$term,3,3)
+
+pvalues_long<-pivot_longer(bestmodels[,c(21,1,22,4:7)],cols=4:7,values_to="pvalue")
+names(pvalues_long)[4]<-"term"
+pvalues_long$term<-substr(pvalues_long$term,7,7)
+
+slope_se_long<-left_join(slopes_long,se_long, by=c("genus_species","model","predictors","term"))
+slope_se_long<-left_join(slope_se_long,pvalues_long, by=c("genus_species","model","predictors","term"))
+
+
+slope_se_long<-drop_na(slope_se_long)
+summary_terms<-slope_se_long %>% group_by(model, predictors, term) %>% summarise(count=n())
+summary_terms$count<-NULL
+summary_terms$term_id<-ifelse(summary_terms$model=="m1" & summary_terms$term=="1" |
+                                summary_terms$model=="m12" & summary_terms$term=="1" |
+                                summary_terms$model =="m13" & summary_terms$term=="1" |
+                                summary_terms$model=="m5" & summary_terms$term=="1"|
+                                summary_terms$model=="m15" & summary_terms$term=="2",
+                              "accum_summer_precip_cm_z", " ")
+summary_terms$term_id<-ifelse(summary_terms$model=="m10" & summary_terms$term=="1" |
+                              summary_terms$model=="m3" & summary_terms$term=="1" |
+                                summary_terms$model=="m12" & summary_terms$term=="2" |
+                                summary_terms$model=="m14" & summary_terms$term=="2" |
+                                summary_terms$model=="m15" & summary_terms$term=="3", 
+                              "prev_yr_accum_summer_precip_cm_z", summary_terms$term_id)
+
+summary_terms$term_id<-ifelse(summary_terms$model=="m14" & summary_terms$term=="1" |
+                                summary_terms$model=="m2" & summary_terms$term=="1" |
+                                summary_terms$model=="m9" & summary_terms$term=="1" | 
+                              summary_terms$model=="m15" & summary_terms$term=="1" |
+                                summary_terms$model=="m13" & summary_terms$term=="2" |
+                                summary_terms$model=="m5" & summary_terms$term=="2", 
+                              "doy_bare_ground_z", summary_terms$term_id)
+
+summary_terms$term_id<-ifelse(summary_terms$model=="m4" & summary_terms$term=="1" |
+                                summary_terms$model=="m9" & summary_terms$term=="2" |
+                                summary_terms$model=="m10" & summary_terms$term=="2" |
+                                summary_terms$model=="m12" & summary_terms$term=="3" |
+                                summary_terms$model=="m13" & summary_terms$term=="3" |
+                                summary_terms$model=="m14" & summary_terms$term=="3" |
+                                summary_terms$model=="m15" & summary_terms$term=="4", 
+                              "prev_yr_doy_bare_ground_z", summary_terms$term_id)
+
+slope_se_long<-left_join(slope_se_long, summary_terms, by=c("model","predictors","term"))
+
+
+slope_se_long$term_id_labels<-slope_se_long$term_id
+slope_se_long$term_id_renamed<-as.factor(slope_se_long$term_id)
+levels(slope_se_long$term_id_renamed) <- c("Summer \nprecipitation","Snowmelt date","Prior summer \nprecipitation","Prior year \nsnowmelt date")
+
+slope_se_long$pvalue_sig<-ifelse(slope_se_long$pvalue>=0.05,"Nonsignificant","Significant")
+
+ggplot(slope_se_long, aes(y = slope, x = term_id_renamed, color=pvalue_sig)) +
+  geom_point(size=2, position=position_dodge(width=0.5)) +
+  xlab("Species") + ylab("Parameter estimate") +
+  geom_errorbar(aes(ymin=slope-se, ymax=slope+se), width=.2,position=position_dodge(width=0.5)) +
+  theme_classic() +
+  theme(axis.text.x = element_text(angle = 45, hjust=1)) +
+  geom_hline(yintercept=0, linetype='dashed', col = 'darkgray') + facet_wrap(~genus_species,ncol=2) + theme(legend.position = "none")
 
 
