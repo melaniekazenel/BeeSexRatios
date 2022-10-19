@@ -14,6 +14,7 @@ library(corrplot)
 library(car)
 library(MuMIn)
 library(piecewiseSEM)
+library(lubridate)
 
 # set wd
 setwd("~/Documents/*RMBLPhenology/Projects/BeeSexRatios/Analyses")
@@ -596,3 +597,10 @@ ggplot(slope_se_long, aes(y = slope, x = term_id_renamed, color=pvalue_sig)) +
   geom_hline(yintercept=0, linetype='dashed', col = 'darkgray') + facet_wrap(~genus_species,ncol=2) + theme(legend.position = "none")
 
 
+
+
+
+
+##### Considering the role of floral resource availability: SEMs #####
+
+flor<-read.csv("floral_data_annual_summaries_forsexratios.csv")
