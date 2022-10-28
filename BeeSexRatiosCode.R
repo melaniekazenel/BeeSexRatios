@@ -15,6 +15,7 @@ library(car)
 library(MuMIn)
 library(piecewiseSEM)
 library(lubridate)
+library(visreg)
 
 # set wd
 setwd("~/Documents/*RMBLPhenology/Projects/BeeSexRatios/Analyses")
@@ -124,6 +125,14 @@ names(climate_prioryear)[2:8]<-c("prev_yr_accum_summer_precip_cm","prev_yr_accum
 climate_prioryear$year<-climate_prioryear$year+1
 beedatafocal<-left_join(beedatafocal,climate_prioryear,by="year")
 
+# z-score variables of interest
+beedatafocal$accum_summer_precip_cm_z<-scale(beedatafocal$accum_summer_precip_cm, center = TRUE, scale = TRUE)
+
+beedatafocal$doy_bare_ground_z<-scale(beedatafocal$doy_bare_ground, center = TRUE, scale = TRUE)
+
+beedatafocal$prev_yr_accum_summer_precip_cm_z<-scale(beedatafocal$prev_yr_accum_summer_precip_cm, center = TRUE, scale = TRUE)
+
+beedatafocal$prev_yr_doy_bare_ground_z<-scale(beedatafocal$prev_yr_doy_bare_ground, center = TRUE, scale = TRUE)
 
 ##### Look at correlations between climate variables #####
 correlations_climate<-cor(beedatafocal[,c(32:36,38:43,45)])
@@ -229,16 +238,6 @@ ggplot(beedatafocal, aes(y = sex_binom, x = accum_summer_dd)) +
 # doy_bare_ground
 # prev_yr_accum_summer_precip_cm
 # prev_yr_doy_bare_ground
-
-# z-score variables
-beedatafocal$accum_summer_precip_cm_z<-scale(beedatafocal$accum_summer_precip_cm, center = TRUE, scale = TRUE)
-
-beedatafocal$doy_bare_ground_z<-scale(beedatafocal$doy_bare_ground, center = TRUE, scale = TRUE)
-
-beedatafocal$prev_yr_accum_summer_precip_cm_z<-scale(beedatafocal$prev_yr_accum_summer_precip_cm, center = TRUE, scale = TRUE)
-
-beedatafocal$prev_yr_doy_bare_ground_z<-scale(beedatafocal$prev_yr_doy_bare_ground, center = TRUE, scale = TRUE)
-
 
 # construct models
 # accum_summer_precip_cm_z
@@ -603,4 +602,165 @@ ggplot(slope_se_long, aes(y = slope, x = term_id_renamed, color=pvalue_sig)) +
 
 ##### Considering the role of floral resource availability: SEMs #####
 
+# read in floral data
 flor<-read.csv("floral_data_annual_summaries_forsexratios.csv")
+# add current year's floral data to be dataset
+beedatafocal<-left_join(beedatafocal,flor,by="year")
+# add prior year's floral data to bee dataset
+flor_prior<-flor
+flor_prior$year<-flor_prior$year+1
+names(flor_prior)[2:5]<-c("prev_yr_total_flowers", "prev_yr_total_flowers_80", "prev_yr_floral_days", "prev_yr_floral_days_80")
+beedatafocal<-left_join(beedatafocal,flor_prior, by="year")
+
+# z-score floral variables
+beedatafocal$total_flowers_z<-scale(beedatafocal$total_flowers, center = TRUE, scale = TRUE)
+beedatafocal$prev_yr_total_flowers_z<-scale(beedatafocal$prev_yr_total_flowers, center = TRUE, scale = TRUE)
+
+beedatafocal$floral_days_z<-scale(beedatafocal$floral_days, center = TRUE, scale = TRUE)
+beedatafocal$prev_yr_floral_days_z<-scale(beedatafocal$prev_yr_floral_days, center = TRUE, scale = TRUE)
+
+beedatafocal$total_flowers_80_z<-scale(beedatafocal$total_flowers_80, center = TRUE, scale = TRUE)
+beedatafocal$prev_yr_total_flowers_80_z<-scale(beedatafocal$prev_yr_total_flowers_80, center = TRUE, scale = TRUE)
+
+beedatafocal$floral_days_80_z<-scale(beedatafocal$floral_days_80, center = TRUE, scale = TRUE)
+beedatafocal$prev_yr_floral_days_80_z<-scale(beedatafocal$prev_yr_floral_days_80, center = TRUE, scale = TRUE)
+
+
+
+# exploratory graphs: relationships between climate and floral variables
+
+ggplot(beedatafocal, aes(y = total_flowers, x = doy_bare_ground)) +
+  geom_point() +
+  theme_classic(base_size = 15) +
+  geom_smooth(method = lm)
+
+ggplot(beedatafocal, aes(y = total_flowers, x = accum_summer_precip_cm)) +
+  geom_point() +
+  theme_classic(base_size = 15) +
+  geom_smooth(method = lm)
+
+ggplot(beedatafocal, aes(y = floral_days, x = doy_bare_ground)) +
+  geom_point() +
+  theme_classic(base_size = 15) +
+  geom_smooth(method = lm)
+
+ggplot(beedatafocal, aes(y = floral_days, x = accum_summer_precip_cm)) +
+  geom_point() +
+  theme_classic(base_size = 15) +
+  geom_smooth(method = lm)
+
+# Analyses just looking at the effect of floral metrics
+
+m1<- glmer(sex_binom ~ prev_yr_floral_days_z +
+          (1|year/site) + (1|genus_species),
+        data = beedatafocal, family = binomial)
+summary(m1)
+plot(allEffects(m1))
+
+ggplot(beedatafocal, aes(y = sex_binom, x = prev_yr_floral_days_z)) +
+  geom_point() +
+  theme_classic(base_size = 15) +
+  geom_smooth(method = glm, method.args= list(family="binomial")) +
+  xlab("Previous year's floral days") + ylab("Sex \n(female=1, male=0)")
+
+
+m2<- glmer(sex_binom ~ prev_yr_total_flowers_z +
+          (1|year/site) + (1|genus_species),
+        data = beedatafocal, family = binomial)
+summary(m2)
+plot(allEffects(m2))
+
+ggplot(beedatafocal, aes(y = sex_binom, x = prev_yr_total_flowers_z)) +
+  geom_point() +
+  theme_classic(base_size = 15) +
+  geom_smooth(method = glm, method.args= list(family="binomial")) +
+  xlab("Previous year's total flowers") + ylab("Sex \n(female=1, male=0)")
+
+
+# Analyses looking at floral days and climate together in GLMMs
+
+# sex ~ floral days and snowmelt date
+m1<- glmer(sex_binom ~ prev_yr_floral_days_z*prev_yr_doy_bare_ground_z +
+             (1|year/site) + (1|genus_species),
+           data = beedatafocal, family = binomial)
+summary(m1)
+vif(m1) # ok!
+plot(allEffects(m1))
+rsquared(m1)
+
+visreg(m1,"prev_yr_floral_days_z",type="conditional", scale="response",
+       by="prev_yr_doy_bare_ground_z",
+       points.par=list(cex=1.2,col="black"),
+       cex.axis=1.4, line.par=list(col="black"),
+       xlab=list("Prior year's floral days", cex=1.8),
+       ylab=list("Sex", cex=1.8))
+
+# compare this model to the one that just contained snowmelt date
+msnow<- glmer(sex_binom ~ prev_yr_doy_bare_ground_z +
+             (1|year/site) + (1|genus_species),
+           data = beedatafocal, family = binomial)
+
+AICc(m1,msnow)
+# including floral resources improves the model!
+
+beedatafocal$facet_prev_yr_doy_bare_ground_z<-ifelse(beedatafocal$prev_yr_doy_bare_ground_z<=0,"Early snowmelt \nin previous year","Late snowmelt \nin previous year")
+ggplot(beedatafocal, aes(y = sex_binom, x = prev_yr_floral_days)) +
+  geom_point() +
+  theme_classic(base_size = 15) +
+  geom_smooth(method = glm, method.args= list(family="binomial")) +
+  facet_wrap(~facet_prev_yr_doy_bare_ground_z) +
+  xlab("Previous year's floral days") + ylab("Sex \n(female=1, male=0)")
+
+
+# sex ~ floral sum and snowmelt date - VIF is too high
+m2<- glmer(sex_binom ~ prev_yr_total_flowers_z*prev_yr_doy_bare_ground_z +
+             (1|year/site) + (1|genus_species),
+           data = beedatafocal, family = binomial)
+summary(m2)
+vif(m2) # TOO HIGH!
+
+
+
+##### SEMs #####
+
+# piecewise SEM: simplified version
+prev_yr_sem<-psem(
+  
+  # effects of climate on sex ratios
+  glmer(sex_binom ~ prev_yr_total_flowers +
+          (1|year/site) + (1|genus_species), 
+        data = beedatafocal, family = binomial),
+  
+  lm(prev_yr_total_flowers ~ 
+       prev_yr_doy_bare_ground, 
+     data = beedatafocal)
+)
+
+summary(prev_yr_sem, .progressBar = F)
+
+# # piecewise SEM: full version
+# prev_yr_sem<-psem(
+#   
+#   # effects of climate on sex ratios
+#   glmer(sex_binom ~ prev_yr_doy_bare_ground + 
+#           prev_yr_accum_summer_precip_cm +
+#           prev_yr_floral_days +
+#           prev_yr_total_flowers +
+#           (1|year/site) + (1|genus_species), 
+#         data = beedatafocal, family = binomial),
+#   
+#   # effects of climate on flowers
+#   lm(prev_yr_floral_days ~ 
+#        prev_yr_doy_bare_ground + 
+#        prev_yr_accum_summer_precip_cm, 
+#      data = beedatafocal),
+#   
+#   lm(prev_yr_total_flowers ~ 
+#        prev_yr_doy_bare_ground +
+#        prev_yr_accum_summer_precip_cm, 
+#      data = beedatafocal)
+# 
+# )
+# 
+# summary(prev_yr_sem, .progressBar = F)
+
