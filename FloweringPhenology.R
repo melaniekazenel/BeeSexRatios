@@ -28,7 +28,7 @@ flor2<-filter(flor,family!="Poaceae" & family!="Cyperaceae" & inside_plot==1)
 
 # get plot-year summary to check that all plots were sampled in all years
 plot_year<-flor2 %>% group_by(year,plot) %>% summarise(count=n())
-plot_year2<-plot_year %>% group_by(year) %>% summarise(count=n()) %>% filter(year>=2009)
+plot_year2<-plot_year %>% group_by(year) %>% summarise(count=n()) %>% filter(year>=2008)
 
 # check out which plot was missing in 2012
 plot_year_12_13<-plot_year %>% filter(year==2012 | year==2013)
@@ -36,7 +36,7 @@ plot_year_12_13<-plot_year %>% filter(year==2012 | year==2013)
 plot_year_12<-plot_year %>% filter(year==2012)
 
 # subset to just include the plots sampled in each year from 2009-2018
-flor_focal<-flor2 %>% filter(year>=2009 & year<= 2018) %>% filter(plot %in% plot_year_12$plot)
+flor_focal<-flor2 %>% filter(year>=2008 & year<= 2018) %>% filter(plot %in% plot_year_12$plot)
 # check to make sure that all plots were sampled in all years
 summary<-flor_focal %>% group_by(year,plot) %>% summarise(count=n())
 summary$count<-1
@@ -52,6 +52,11 @@ summary2<-pivot_wider(summary,names_from = plot, values_from = count)
 
 # calculate floral sum for each day
 daily<-flor_focal %>% group_by(year,date,doy) %>% summarise(daily_floral_count=sum(floralcount))
+
+# # check year with high floral counts (2015)
+# daily15<-filter(daily,year==2015)
+# ggplot(aes(x=doy,y=daily_floral_count),data=daily15) + geom_point()
+# # trend looks real!
 
 # calculate floral sum for each year (across the whole sampling season)
 flor_annual<-daily %>% group_by(year) %>% summarise(total_yearly_flowers=sum(daily_floral_count))
@@ -90,4 +95,4 @@ flor_annual<-left_join(flor_annual,total_days_high,by="year")
 # rename columns
 names(flor_annual)[2:5]<-c("total_flowers","total_flowers_80","floral_days","floral_days_80")
 
-write.csv(flor_annual,"floral_data_annual_summaries_forsexratios.csv",row.names = FALSE)
+#write.csv(flor_annual,"floral_data_annual_summaries_forsexratios.csv",row.names = FALSE)
