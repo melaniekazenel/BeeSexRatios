@@ -6,25 +6,26 @@
 setwd("~/Documents/*RMBLPhenology/Projects/BeeSexRatios/Analyses")
 
 # load data
-load(file='all-data-corr-mdwupdated-fixedsp-2020.RData')
+load(file='all-data-2022.RData')
 
 # create a copy with a new name to work with
-flor<-all.data.corr.mdwupdated.fixedsp.2020
+flor<-all.data.2022
 
-# look at data
-#species_list<-flor %>% group_by(species) %>% summarise(count=n())
-#write.csv(species_list,"Inouye_plant_species_list_2020.csv")
+# look at data and add family information
+species_list<-flor %>% group_by(species) %>% summarise(count=n())
+genus_list<-read.csv("Inouye_plant_species_list_2020.csv")
+genus_list<-genus_list[,-c(3:4)]
+species_list<-left_join(species_list,genus_list,by="species")
+#write.csv(species_list,"Inouye_plant_species_list_2022.csv")
 # family IDs added manually for each plant
 
 # read in updated list
-species_list<-read.csv("Inouye_plant_species_list_2020.csv")
-# change Chamerion.danielsii to Chamerion danielsii in flor data
-flor$species[flor$species == "Chamerion.danielsii"] <- "Chamerion danielsii"
-# add data from species list to flor
-flor<-left_join(flor,species_list[,c(1,2,4)],by="species")
+species_list<-read.csv("Inouye_plant_species_list_2022.csv")
+species_list$count<-NULL
+flor<-left_join(flor,species_list,by="species")
 
 # subset to remove grasses and sedges, and any plants outside of plots
-flor2<-filter(flor,family!="Poaceae" & family!="Cyperaceae" & inside_plot==1)
+flor2<-filter(flor,family!="Poaceae" & family!="Cyperaceae")
 
 # get plot-year summary to check that all plots were sampled in all years
 plot_year<-flor2 %>% group_by(year,plot) %>% summarise(count=n())
@@ -35,8 +36,8 @@ plot_year_12_13<-plot_year %>% filter(year==2012 | year==2013)
 # MDW2 present in 2013 but not 2012
 plot_year_12<-plot_year %>% filter(year==2012)
 
-# subset to just include the plots sampled in each year from 2009-2018
-flor_focal<-flor2 %>% filter(year>=2008 & year<= 2018) %>% filter(plot %in% plot_year_12$plot)
+# subset to just include the plots sampled in each year from 2009-2021
+flor_focal<-flor2 %>% filter(year>=2008 & year<= 2021) %>% filter(plot %in% plot_year_12$plot)
 # check to make sure that all plots were sampled in all years
 summary<-flor_focal %>% group_by(year,plot) %>% summarise(count=n())
 summary$count<-1
@@ -54,9 +55,9 @@ summary2<-pivot_wider(summary,names_from = plot, values_from = count)
 daily<-flor_focal %>% group_by(year,date,doy) %>% summarise(daily_floral_count=sum(floralcount))
 
 # # check year with high floral counts (2015)
-# daily15<-filter(daily,year==2015)
-# ggplot(aes(x=doy,y=daily_floral_count),data=daily15) + geom_point()
-# # trend looks real!
+daily15<-filter(daily,year==2015)
+ggplot(aes(x=doy,y=daily_floral_count),data=daily15) + geom_point()
+# trend looks real!
 
 # calculate floral sum for each year (across the whole sampling season)
 flor_annual<-daily %>% group_by(year) %>% summarise(total_yearly_flowers=sum(daily_floral_count))
@@ -95,4 +96,4 @@ flor_annual<-left_join(flor_annual,total_days_high,by="year")
 # rename columns
 names(flor_annual)[2:5]<-c("total_flowers","total_flowers_80","floral_days","floral_days_80")
 
-#write.csv(flor_annual,"floral_data_annual_summaries_forsexratios.csv",row.names = FALSE)
+# write.csv(flor_annual,"floral_data_annual_summaries_forsexratios.csv",row.names = FALSE)
