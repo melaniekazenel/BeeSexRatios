@@ -114,134 +114,174 @@ unique(beedatafocal$genus_species)
 beedatafocal$sex_binom <- ifelse(beedatafocal$sex == "F", 1, 0)
 
 ##### Add climate data #####
-climate<-read.csv("weather_summaries_billybarr_forsexratios.csv")
-# add doy for bare ground
-climate$doy_bare_ground<-yday(climate$date_bare_ground)
+# read in billy barr climate data
+climate_billy<-read.csv("weather_summaries_billybarr_forsexratios.csv")
+# remove variables included in Ian's dataset
+climate_billy<-climate_billy[,c(1,2)]
+
+# read in Ian's temperature data
+temp<-read.csv("bee_sites_temp_2006_2022.csv")
+names(temp)[2:3]<-c("site","date")
+
+### Calculate May-September degree days above 0 C
+# calculate GDD
+temp$GDD_calc<-(temp$Tmax+temp$Tmin)/2
+
+# create column to use in calculating accumulated degree days above 0
+temp$DD_abovezero<-ifelse(temp$GDD_calc>0, temp$GDD_calc, 0)
+
+# create year, month, and day columns
+temp$year<-year(temp$date)
+temp$month<-month(temp$date)
+temp$day<-day(temp$date)
+
+# calculate May-September cumulative degree days above 0
+climate<-temp %>% filter(month>=5 & month<=9) %>% group_by(site,year) %>% summarise(accum_summer_dd=sum(DD_abovezero))
+
+# add snow data to climate data frame
+snow<-read.csv("bee_sites_snow_2006_2022.csv")
+names(snow)[2:4]<-c("site","year","doy_bare_ground")
+climate<-left_join(climate,snow[,c(2:7)],by=c("site","year"))
+
+# add billy barr presip data to climate data frame
+climate<-left_join(climate,climate_billy,by="year")
+
 # add present year's climate data to bee dataset
-beedatafocal<-left_join(beedatafocal,climate,by="year")
+beedatafocal<-left_join(beedatafocal,climate,by=c("site","year"))
+
 # add prior year's climate data to bee dataset
 climate_prioryear<-climate
-names(climate_prioryear)[2:8]<-c("prev_yr_accum_summer_precip_cm","prev_yr_accum_summer_dd", "prev_yr_accum_winter_snowfall_cm","prev_yr_mean_snow_depth_cm","prev_yr_snow_cover_days","prev_yr_date_bare_ground", "prev_yr_doy_bare_ground")
+names(climate_prioryear)[3:8]<-c("prev_yr_accum_summer_dd","prev_yr_doy_bare_ground","prev_yr_SnowOnsetDOY","prev_yr_SnowLengthDays","prev_yr_SnowOnsetDOY_calendar","prev_yr_accum_summer_precip_cm")
+#names(climate_prioryear)[2:8]<-c("prev_yr_accum_summer_precip_cm","prev_yr_accum_summer_dd", "prev_yr_accum_winter_snowfall_cm","prev_yr_mean_snow_depth_cm","prev_yr_snow_cover_days","prev_yr_date_bare_ground", "prev_yr_doy_bare_ground")
 climate_prioryear$year<-climate_prioryear$year+1
-beedatafocal<-left_join(beedatafocal,climate_prioryear,by="year")
+beedatafocal<-left_join(beedatafocal,climate_prioryear,by=c("site","year"))
 
 # z-score variables of interest
 beedatafocal$accum_summer_precip_cm_z<-as.numeric(scale(beedatafocal$accum_summer_precip_cm, center = TRUE, scale = TRUE))
-
 beedatafocal$doy_bare_ground_z<-as.numeric(scale(beedatafocal$doy_bare_ground, center = TRUE, scale = TRUE))
-
 beedatafocal$prev_yr_accum_summer_precip_cm_z<-as.numeric(scale(beedatafocal$prev_yr_accum_summer_precip_cm, center = TRUE, scale = TRUE))
-
 beedatafocal$prev_yr_doy_bare_ground_z<-as.numeric(scale(beedatafocal$prev_yr_doy_bare_ground, center = TRUE, scale = TRUE))
 
-##### Look at correlations between climate variables #####
-correlations_climate<-cor(beedatafocal[,c(32:36,38:43,45)])
-corrplot(correlations_climate)
-# variables with low pairwise correlations to focus on:
+# add floral data
+flowers<-read.csv("focalbeedata_envdata_RMBLsexratios_2022-11-07.csv")
+beedatafocal2<-left_join(beedatafocal,flowers[,c(2,50:65)],by=c("unique_id_year"))
 
-##### GLMMs: Across species, how do female/male counts vary with individual climate variables, considering a large list? (lme4 package) #####
-
-beedatafocal<-read.csv("focalbeedata_envdata_RMBLsexratios_2022-11-07.csv")
-
-# previous year's snowmelt date -- positive relationship
-m1 <- glmer(sex_binom ~ prev_yr_doy_bare_ground + (1|year/site) + (1|genus_species), data = beedatafocal, family = binomial)
-
-summary(m1)
-print(m1, corr = FALSE)
-plot(allEffects(m1))
-
-ggplot(beedatafocal, aes(y = sex_binom, x = prev_yr_doy_bare_ground)) +
-  geom_point() +
-  theme_classic(base_size = 15) +
-  geom_smooth(method = glm, method.args= list(family="binomial"))
-
-# previous year's summer precipitation -- nonsignificant
-m2 <- glmer(sex_binom ~ prev_yr_accum_summer_precip_cm + (1|year/site) + (1|genus_species), data = beedatafocal, family = binomial)
-
-summary(m2)
-print(m2, corr = FALSE)
-plot(allEffects(m2))
-
-ggplot(beedatafocal, aes(y = sex_binom, x = prev_yr_accum_summer_precip_cm)) +
-  geom_point() +
-  theme_classic(base_size = 15) +
-  geom_smooth(method = glm, method.args= list(family="binomial"))
-
-# previous year's summer temperature -- nonsignificant
-m3 <- glmer(sex_binom ~ prev_yr_accum_summer_dd + (1|year/site) + (1|genus_species), data = beedatafocal, family = binomial)
-
-summary(m3)
-print(m3, corr = FALSE)
-plot(allEffects(m3))
-
-ggplot(beedatafocal, aes(y = sex_binom, x = prev_yr_accum_summer_dd)) +
-  geom_point() +
-  theme_classic(base_size = 15) +
-  geom_smooth(method = glm, method.args= list(family="binomial"))
-
-
-# current year's winter snow cover (winter preceding current growing season) -- nonsignificant
-m4 <- glmer(sex_binom ~ accum_winter_snowfall_cm + (1|year/site) + (1|genus_species), data = beedatafocal, family = binomial)
-
-summary(m4)
-print(m4, corr = FALSE)
-plot(allEffects(m4))
-
-ggplot(beedatafocal, aes(y = sex_binom, x = accum_winter_snowfall_cm)) +
-  geom_point() +
-  theme_classic(base_size = 15) +
-  geom_smooth(method = glm, method.args= list(family="binomial"))
-
-
-# current year's snowmelt date -- nonsignificant
-m5 <- glmer(sex_binom ~ doy_bare_ground + (1|year/site) + (1|genus_species), data = beedatafocal, family = binomial)
-
-summary(m5)
-print(m5, corr = FALSE)
-plot(allEffects(m5))
-
-ggplot(beedatafocal, aes(y = sex_binom, x = doy_bare_ground)) +
-  geom_point() +
-  theme_classic(base_size = 15) +
-  geom_smooth(method = glm, method.args= list(family="binomial"))
-
-
-# current year's summer precipitation -- nonsignificant
-m6 <- glmer(sex_binom ~ accum_summer_precip_cm + (1|year/site) + (1|genus_species), data = beedatafocal, family = binomial)
-
-summary(m6)
-print(m6, corr = FALSE)
-plot(allEffects(m6))
-
-ggplot(beedatafocal, aes(y = sex_binom, x = accum_summer_precip_cm)) +
-  geom_point() +
-  theme_classic(base_size = 15) +
-  geom_smooth(method = glm, method.args= list(family="binomial"))
-
-# current year's summer temperature -- nonsignificant
-m7 <- glmer(sex_binom ~ accum_summer_dd + (1|year/site) + (1|genus_species), data = beedatafocal, family = binomial)
-
-summary(m7)
-print(m7, corr = FALSE)
-plot(allEffects(m7))
-
-ggplot(beedatafocal, aes(y = sex_binom, x = accum_summer_dd)) +
-  geom_point() +
-  theme_classic(base_size = 15) +
-  geom_smooth(method = glm, method.args= list(family="binomial"))
-
-
+# create csv file
+write.csv(beedatafocal2,"focalbeedata_envdata_RMBLsexratios_2023-01-26.csv",row.names=FALSE)
 
 
 ##### GLMMs: Across species, do climate variables together predict female/male counts? #####
+beedatafocal<-read.csv("focalbeedata_envdata_RMBLsexratios_2023-01-26.csv")
 
-beedatafocal<-read.csv("focalbeedata_envdata_RMBLsexratios_2022-11-07.csv")
+# subset to just include focal sites
+sitelist<-c("Almont","Almont Curve","Beaver","CDOT","Copper","Davids","Elko","Gothic","Hill","Little","Lypps","Mexican Cut","Rustlers","Seans","Tuttle","Willey")
+beedatafocal<-filter(beedatafocal, site %in% sitelist)
+
+# # subset to exclude sites not sampled prior to 2015
+# sitelist<-c("Almont","Beaver","Copper","Davids","Gothic","Hill","Little","Mexican Cut","Seans","Tuttle","Willey")
+# beedatafocal<-filter(beedatafocal, site %in% sitelist) 
 
 # variables with low pairwise correlations to focus on:
 # accum_summer_precip_cm
 # doy_bare_ground
 # prev_yr_accum_summer_precip_cm
 # prev_yr_doy_bare_ground
+
+# try simple models
+ma<-glm(sex_binom ~ prev_yr_doy_bare_ground*site, data=beedatafocal,family="binomial")
+summary(ma)
+anova(ma, test="Chisq")
+
+mb<-glm(sex_binom ~ prev_yr_doy_bare_ground+site+genus_species, data=beedatafocal,family="binomial")
+summary(mb)
+anova(mb, test="Chisq")
+
+mc<-glm(sex_binom ~ prev_yr_doy_bare_ground*genus_species, data=beedatafocal,family="binomial")
+summary(mc)
+anova(mc, test="Chisq")
+
+
+# examine graphs
+
+# accum_summer_precip_cm
+ggplot(beedatafocal, aes(y = sex_binom, x = accum_summer_precip_cm)) +
+  geom_point() +
+  theme_classic(base_size = 15) +
+  geom_smooth(method = glm, method.args= list(family="binomial"))
+ggplot(beedatafocal, aes(y = sex_binom, x = accum_summer_precip_cm)) +
+  geom_point() +
+  theme_classic(base_size = 15) +
+  facet_wrap(~site) +
+  geom_smooth(method = glm, method.args= list(family="binomial"))
+ggplot(beedatafocal, aes(y = sex_binom, x = accum_summer_precip_cm)) +
+  geom_point() +
+  theme_classic(base_size = 15) +
+  facet_wrap(~genus_species) +
+  geom_smooth(method = glm, method.args= list(family="binomial"))
+
+# doy_bare_ground
+ggplot(beedatafocal, aes(y = sex_binom, x = doy_bare_ground)) +
+  geom_point() +
+  theme_classic(base_size = 15) +
+  geom_smooth(method = glm, method.args= list(family="binomial"))
+ggplot(beedatafocal, aes(y = sex_binom, x = doy_bare_ground)) +
+  geom_point() +
+  theme_classic(base_size = 15) +
+  facet_wrap(~site) +
+  geom_smooth(method = glm, method.args= list(family="binomial"))
+ggplot(beedatafocal, aes(y = sex_binom, x = doy_bare_ground)) +
+  geom_point() +
+  theme_classic(base_size = 15) +
+  facet_wrap(~genus_species) +
+  geom_smooth(method = glm, method.args= list(family="binomial"))
+
+# prev_yr_accum_summer_precip_cm
+ggplot(beedatafocal, aes(y = sex_binom, x = prev_yr_accum_summer_precip_cm)) +
+  geom_point() +
+  theme_classic(base_size = 15) +
+  geom_smooth(method = glm, method.args= list(family="binomial"))
+ggplot(beedatafocal, aes(y = sex_binom, x = prev_yr_accum_summer_precip_cm)) +
+  geom_point() +
+  theme_classic(base_size = 15) +
+  facet_wrap(~site) +
+  geom_smooth(method = glm, method.args= list(family="binomial"))
+ggplot(beedatafocal, aes(y = sex_binom, x = prev_yr_accum_summer_precip_cm)) +
+  geom_point() +
+  theme_classic(base_size = 15) +
+  facet_wrap(~genus_species) +
+  geom_smooth(method = glm, method.args= list(family="binomial"))
+
+# prev_yr_doy_bare_ground
+ggplot(beedatafocal, aes(y = sex_binom, x = prev_yr_doy_bare_ground)) +
+  geom_point() +
+  theme_classic(base_size = 15) +
+  geom_smooth(method = glm, method.args= list(family="binomial"))
+ggplot(beedatafocal, aes(y = sex_binom, x = prev_yr_doy_bare_ground)) +
+  geom_point() +
+  theme_classic(base_size = 15) +
+  facet_wrap(~site) +
+  geom_smooth(method = glm, method.args= list(family="binomial"))
+ggplot(beedatafocal, aes(y = sex_binom, x = prev_yr_doy_bare_ground)) +
+  geom_point() +
+  theme_classic(base_size = 15) +
+  facet_wrap(~genus_species) +
+  geom_smooth(method = glm, method.args= list(family="binomial"))
+
+ggplot(beedatafocal2, aes(y = sex_binom, x = prev_yr_doy_bare_ground)) +
+  geom_point() +
+  theme_classic(base_size = 15) +
+  facet_wrap(~elev_group) +
+  geom_smooth(method = glm, method.args= list(family="binomial"))
+m4 <- glmer(sex_binom ~ prev_yr_doy_bare_ground_z*elev_group + (1|year) + (1|genus_species), data = beedatafocal2, family = binomial)
+summary(m4)
+Anova(m4,type=3)
+
+ggplot(beedatafocal2, aes(y = sex_binom, x = year)) +
+  geom_point() +
+  theme_classic(base_size = 15) +
+  facet_wrap(~elev_group) +
+  #facet_wrap(~site) +
+  geom_smooth(method = glm, method.args= list(family="binomial"))
 
 # construct models
 # accum_summer_precip_cm_z
@@ -254,7 +294,39 @@ m2 <- glmer(sex_binom ~ doy_bare_ground_z + (1|year/site) + (1|genus_species), d
 m3 <- glmer(sex_binom ~ prev_yr_accum_summer_precip_cm_z + (1|year/site) + (1|genus_species), data = beedatafocal, family = binomial)
 
 # prev_yr_doy_bare_ground_z
-m4 <- glmer(sex_binom ~ prev_yr_doy_bare_ground_z + (1|year/site) + (1|genus_species), data = beedatafocal, family = binomial)
+#m4 <- glmer(sex_binom ~ prev_yr_doy_bare_ground_z + (1|year/site) + (1|genus_species), data = beedatafocal, family = binomial)
+
+#other models examined to determine which random effects to include
+m4a <- glmer(sex_binom ~ prev_yr_doy_bare_ground_z + (1|genus_species), data = beedatafocal, family = binomial)
+
+#m4b <- glmer(sex_binom ~ prev_yr_doy_bare_ground_z + (1|year/site), data = beedatafocal, family = binomial)
+
+#m4c <- glmer(sex_binom ~ prev_yr_doy_bare_ground_z + (1|year) + (1|genus_species), data = beedatafocal, family = binomial)
+
+# USE THIS MODEL!!
+m4d <- glmer(sex_binom ~ prev_yr_doy_bare_ground_z + (1|site) + (1|genus_species), data = beedatafocal, family = binomial)
+summary(m4d)
+
+
+#m4e <- glmer(sex_binom ~ prev_yr_doy_bare_ground_z + (1|year), data = beedatafocal, family = binomial)
+
+m4f <- glmer(sex_binom ~ prev_yr_doy_bare_ground_z + (1|site), data = beedatafocal, family = binomial)
+
+#m4g <- glmer(sex_binom ~ prev_yr_doy_bare_ground_z + (1|site/year) + (1|genus_species), data = beedatafocal, family = binomial)
+
+#
+#m4h <- glmer(sex_binom ~ prev_yr_doy_bare_ground_z + (1|year) + (1|site) + (1|genus_species), data = beedatafocal, family = binomial)
+
+modelaiccs<-AICc(m4,m4a,m4b,m4c,m4d,m4e,m4f,m4g,m4h)
+modelaiccs<-arrange(modelaiccs,AICc)
+modelaiccs
+
+
+
+
+
+
+
 
 # accum_summer_precip_cm_z + doy_bare_ground_z
 m5 <- glmer(sex_binom ~ accum_summer_precip_cm_z + doy_bare_ground_z + (1|year/site) + (1|genus_species), data = beedatafocal, family = binomial)
@@ -291,52 +363,60 @@ m15 <- glmer(sex_binom ~ doy_bare_ground_z + accum_summer_precip_cm_z + prev_yr_
 
 aicc<-AICc(m1,m2,m3,m4,m5,m6,m7,m8,m9,m10,m11,m12,m13,m14,m15)
 aicc<-arrange(aicc,AICc)
-aicc$deltaAICc<-aicc$AICc-AICc(m4)
+aicc$deltaAICc<-aicc$AICc-min(aicc$AICc)
+aicc
 
-# df     AICc  deltaAICc         Model
-# m4   5 12089.19  0.0000000     prev_yr_doy_bare_ground_z
 summary(m4)
 rsquared(m4)
-# m7   6 12089.58  0.3859968     accum_summer_precip_cm_z + prev_yr_doy_bare_ground_z 
-summary(m7)
-vif(m7) # ok
-# m13  7 12090.74  1.5503916     accum_summer_precip_cm_z + doy_bare_ground_z + prev_yr_doy_bare_ground_z
-summary(m13)
-vif(m13) # ok
-# m10  6 12091.15  1.9647074     prev_yr_accum_summer_precip_cm_z + prev_yr_doy_bare_ground_z
+vif(m4)
+
+#     df     AICc  deltaAICc
+# m2   5 9324.820  0.0000000  doy_bare_ground_z: sig. negative
+summary(m2)
+rsquared(m2)
+
+# m8   6 9325.534  0.7141427  doy_bare_ground_z: sig. negative, prev_yr_accum_summer_precip_cm_z: nonsig. 
+summary(m8)
+rsquared(m8)
+vif(m8) # ok
+
+# m5   6 9326.077  1.2571301  doy_bare_ground_z: sig. negative, accum_summer_precip_cm_z: nonsig.
+summary(m5)
+rsquared(m5)
+vif(m5) # ok
+
+# m11  7 9326.148  1.3284050  doy_bare_ground_z: sig. negative, accum_summer_precip_cm_z: nonsig, prev_yr_accum_summer_precip_cm_z: nonsig.
+summary(m11)
+rsquared(m11)
+vif(m11) # ok
+
+# m10  6 9326.456  1.6360193  prev_yr_doy_bare_ground_z: sig. negative, prev_yr_accum_summer_precip_cm_z: marginally nonsig. positive
 summary(m10)
+rsquared(m10)
 vif(m10) # ok
-# m9   6 12091.16  1.9747274     doy_bare_ground_z + prev_yr_doy_bare_ground_z
+
+# m9   6 9326.764  1.9442547  doy_bare_ground_z: sig. negative, prev_yr_doy_bare_ground_z: nonsig
 summary(m9)
+rsquared(m9)
 vif(m9) # ok
-# m12  7 12091.50  2.3117760     accum_summer_precip_cm_z + prev_yr_accum_summer_precip_cm_z + prev_yr_doy_bare_ground_z
-summary(m12)
-vif(m12) # ok
-# m15  8 12092.47  3.2788203
-summary(m15)
-vif(m15)
-# m14  7 12093.11  3.9231739     doy_bare_ground_z + prev_yr_accum_summer_precip_cm_z +  prev_yr_doy_bare_ground_z
-summary(m14)
-vif(m14) # ok
-# m3   5 12096.74  7.5477262
-# m2   5 12096.76  7.5683016
-# m8   6 12097.81  8.6201019
-# m6   6 12098.29  9.1022211
-# m1   5 12098.63  9.4375146
-# m5   6 12098.76  9.5663272
-# m11  7 12099.67 10.4777415
 
 # graph results from best model
-ggplot(beedatafocal, aes(y = sex_binom, x = prev_yr_doy_bare_ground)) +
+ggplot(beedatafocal, aes(y = sex_binom, x = doy_bare_ground_z)) +
   geom_point() +
   theme_classic(base_size = 15) +
   geom_smooth(method = glm, method.args= list(family="binomial")) +
-  xlab("Previous year's snowmelt date (day of year)") + ylab("Sex \n(female=1, male=0)")
+  xlab("Snowmelt date (day of year)") + ylab("Sex \n(female=1, male=0)")
+
+
 
 
 
 ##### GLMMs: For each species individually, how does climate relate to female/male counts? #####
-beedatafocal<-read.csv("focalbeedata_envdata_RMBLsexratios_2022-11-07.csv")
+beedatafocal<-read.csv("focalbeedata_envdata_RMBLsexratios_2023-01-26.csv")
+
+# subset to just include focal sites
+sitelist<-c("Almont","Almont Curve","Beaver","CDOT","Copper","Davids","Elko","Gothic","Hill","Little","Lypps","Mexican Cut","Rustlers","Seans","Tuttle","Willey")
+beedatafocal<-filter(beedatafocal, site %in% sitelist) 
 
 species_list<-unique(beedatafocal$genus_species)
 output<-matrix(nrow=1,ncol=21,byrow=TRUE,dimnames=list(c("row1"),c("model","df","AICc","pvalue1","pvalue2","pvalue3","pvalue4","slope1","slope2","slope3","slope4","se1","se2","se3","se4","delta_AICc","vif1","vif2","vif3","vif4","genus_species")))
@@ -526,14 +606,15 @@ aicc$predictors<-c("accum_summer_precip_cm_z", "doy_bare_ground_z", "prev_yr_acc
 aicc<-aicc[,-c(2:3)]
 output<-left_join(output,aicc,by="model")
 
-#write.csv(output,"species_glmms_climate_sex_ratios.csv", row.names = FALSE)
+#write.csv(output,"species_glmms_climate_sex_ratios_smallsitelist_2023-02-02.csv", row.names = FALSE)
 
 
 
 
 
 ##### For individual species: graphs of relationships with different climate variables #####
-results<-read.csv("species_glmms_climate_sex_ratios.csv")
+results<-read.csv("species_glmms_climate_sex_ratios_2023-02-01.csv")
+#results<-read.csv("species_glmms_climate_sex_ratios_smallsitelist_2023-02-02.csv")
 bestmodels<-filter(results,delta_AICc==0)
 slopes_long<-pivot_longer(bestmodels[,c(21,1,22,8:11)],cols=4:7,values_to="slope")
 names(slopes_long)[4]<-"term"
@@ -554,32 +635,38 @@ slope_se_long<-left_join(slope_se_long,pvalues_long, by=c("genus_species","model
 slope_se_long<-drop_na(slope_se_long)
 summary_terms<-slope_se_long %>% group_by(model, predictors, term) %>% summarise(count=n())
 summary_terms$count<-NULL
+
 summary_terms$term_id<-ifelse(summary_terms$model=="m1" & summary_terms$term=="1" |
                                 summary_terms$model=="m12" & summary_terms$term=="1" |
                                 summary_terms$model =="m13" & summary_terms$term=="1" |
                                 summary_terms$model=="m5" & summary_terms$term=="1"|
+                                summary_terms$model=="m6" & summary_terms$term=="1"|
                                 summary_terms$model=="m15" & summary_terms$term=="2",
                               "accum_summer_precip_cm_z", " ")
-summary_terms$term_id<-ifelse(summary_terms$model=="m10" & summary_terms$term=="1" |
-                              summary_terms$model=="m3" & summary_terms$term=="1" |
+
+summary_terms$term_id<-ifelse(summary_terms$model=="m3" & summary_terms$term=="1" |
+                                summary_terms$model=="m6" & summary_terms$term=="2" |
+                                summary_terms$model=="m8" & summary_terms$term=="2" |
                                 summary_terms$model=="m12" & summary_terms$term=="2" |
+                                summary_terms$model=="m10" & summary_terms$term=="1" |
                                 summary_terms$model=="m14" & summary_terms$term=="2" |
                                 summary_terms$model=="m15" & summary_terms$term=="3", 
                               "prev_yr_accum_summer_precip_cm_z", summary_terms$term_id)
 
-summary_terms$term_id<-ifelse(summary_terms$model=="m14" & summary_terms$term=="1" |
+summary_terms$term_id<-ifelse(summary_terms$model=="m13" & summary_terms$term=="2" |
                                 summary_terms$model=="m2" & summary_terms$term=="1" |
-                                summary_terms$model=="m9" & summary_terms$term=="1" | 
-                              summary_terms$model=="m15" & summary_terms$term=="1" |
-                                summary_terms$model=="m13" & summary_terms$term=="2" |
-                                summary_terms$model=="m5" & summary_terms$term=="2", 
+                                summary_terms$model=="m8" & summary_terms$term=="1" |
+                                summary_terms$model=="m9" & summary_terms$term=="1" |
+                                summary_terms$model=="m14" & summary_terms$term=="1" |
+                                summary_terms$model=="m15" & summary_terms$term=="1" |
+                                summary_terms$model=="m5" & summary_terms$term=="2",
                               "doy_bare_ground_z", summary_terms$term_id)
 
 summary_terms$term_id<-ifelse(summary_terms$model=="m4" & summary_terms$term=="1" |
                                 summary_terms$model=="m9" & summary_terms$term=="2" |
-                                summary_terms$model=="m10" & summary_terms$term=="2" |
                                 summary_terms$model=="m12" & summary_terms$term=="3" |
-                                summary_terms$model=="m13" & summary_terms$term=="3" |
+                                summary_terms$model=="m13" & summary_terms$term=="3"| 
+                                summary_terms$model=="m10" & summary_terms$term=="2" |
                                 summary_terms$model=="m14" & summary_terms$term=="3" |
                                 summary_terms$model=="m15" & summary_terms$term=="4", 
                               "prev_yr_doy_bare_ground_z", summary_terms$term_id)
@@ -589,6 +676,7 @@ slope_se_long<-left_join(slope_se_long, summary_terms, by=c("model","predictors"
 
 slope_se_long$term_id_labels<-slope_se_long$term_id
 slope_se_long$term_id_renamed<-as.factor(slope_se_long$term_id)
+
 levels(slope_se_long$term_id_renamed) <- c("Summer \nprecipitation","Snowmelt date","Prior summer \nprecipitation","Prior year \nsnowmelt date")
 
 slope_se_long$pvalue_sig<-ifelse(slope_se_long$pvalue>=0.05,"Nonsignificant","Significant")
@@ -603,8 +691,68 @@ ggplot(slope_se_long, aes(y = slope, x = term_id_renamed, color=pvalue_sig)) +
   scale_color_manual(values=c("darkgray","black"))
 
 
+# look at species x site (and elevation) bee counts
+summary<-beedatafocal %>% group_by(site,genus_species)%>%summarise(count=n())
+
+siteinfo<-read.csv("site_info.csv")
+summary<-left_join(summary,siteinfo,by="site")
+
+ggplot(summary,aes(x=site,y=count)) + 
+  geom_bar(stat="identity", position=position_dodge()) +
+  facet_wrap(~genus_species, scales="free_y") +
+  theme(axis.text.x = element_text(angle = 45, hjust=1)) 
+
+ggplot(summary,aes(x=elevation_m,y=count,color=site)) + 
+  geom_bar(stat="identity") +
+  facet_wrap(~genus_species, scales="free_y") +
+  theme(axis.text.x = element_text(angle = 45, hjust=1)) 
 
 
+# count ~ year for each species
+summary2<-beedatafocal %>% group_by(site,genus_species,year)%>%summarise(count=n())
+ggplot(summary2,aes(x=year,y=count,color=site)) + 
+  geom_point() +
+  facet_wrap(~genus_species, scales="free_y")
+
+almont<-filter(summary2,site=="Almont")
+ggplot(summary2,aes(x=year,y=count)) + 
+  geom_point() +
+  facet_wrap(~genus_species, scales="free_y")
+
+summary3<-beedatafocal %>% group_by(site,year)%>%summarise(count=n())
+
+
+# sex ~ doy bare ground for each elevation (aka site)
+siteinfo<-read.csv("site_info.csv")
+beedatafocal2<-left_join(beedatafocal,siteinfo,by="site")
+havi<-filter(beedatafocal2,genus_species=="Halictus virgatellus")
+
+m4 <- glmer(sex_binom ~ prev_yr_doy_bare_ground_z*elev_group + (1|year/site), data = havi, family = binomial)
+summary(m4)
+
+m4 <- glmer(sex_binom ~ prev_yr_doy_bare_ground_z*elev_group + (1|year), data = havi, family = binomial)
+summary(m4)
+Anova(m4, type=3)
+
+
+ggplot(havi, aes(y = sex_binom, x = prev_yr_doy_bare_ground)) +
+  geom_point() +
+  theme_classic(base_size = 15) +
+  #facet_wrap(~elev_group) +
+  geom_smooth(method = glm, method.args= list(family="binomial"))
+
+
+
+
+sitelist_mid<-c("Beaver","Copper","Davids","Gothic","Hill","Little","Rustlers","Seans","Tuttle","Willey")
+havi2<-filter(havi, site %in% sitelist_mid) 
+m4 <- glmer(sex_binom ~ prev_yr_doy_bare_ground_z + (1|year/site), data = havi2, family = binomial)
+summary(m4)
+ggplot(havi2, aes(y = sex_binom, x = prev_yr_doy_bare_ground)) +
+  geom_point() +
+  theme_classic(base_size = 15) +
+  #facet_wrap(~as.factor(elevation_m)) +
+  geom_smooth(method = glm, method.args= list(family="binomial"))
 
 
 ##### Adding floral data #####
@@ -634,40 +782,47 @@ beedatafocal$prev_yr_floral_days_80_z<-as.numeric(scale(beedatafocal$prev_yr_flo
 
 ##### Relationships between climate and floral variables #####
 
-beedatafocal<-read.csv("focalbeedata_envdata_RMBLsexratios_2022-11-07.csv")
+beedatafocal<-read.csv("focalbeedata_envdata_RMBLsexratios_2023-01-26.csv")
+
+# subset to just include focal sites
+sitelist<-c("Almont","Almont Curve","Beaver","CDOT","Copper","Davids","Elko","Gothic","Hill","Little","Lypps","Mexican Cut","Rustlers","Seans","Tuttle","Willey")
+beedatafocal<-filter(beedatafocal, site %in% sitelist) 
 
 # optional: remove outlier floral resource year (remove 2016 for examining previous year's resources)
 #beedatafocal<-subset(beedatafocal,year!=2016)
 
 # exploratory graphs: relationships between climate and floral variables
 
+# subset to just include mid-elevation sites
+# sitelist_mid<-c("Beaver","Copper","Davids","Gothic","Hill","Little","Rustlers","Seans","Tuttle","Willey")
+# beedatafocal<-filter(beedatafocal, site %in% sitelist_mid) 
+
 ggplot(beedatafocal, aes(y = total_flowers, x = doy_bare_ground)) +
   geom_point() +
   theme_classic(base_size = 15) +
   geom_smooth(method = lm) + 
-  xlab("Snowmelt date") + ylab("Floral sum")
+  xlab("Snowmelt date") + ylab("Floral sum") + facet_wrap(~site)
 summary(lm(total_flowers~doy_bare_ground,data=beedatafocal))
 
 ggplot(beedatafocal, aes(y = total_flowers, x = accum_summer_precip_cm)) +
   geom_point() +
   theme_classic(base_size = 15) +
   geom_smooth(method = lm) + 
-  xlab("Summer precipitation") + ylab("Floral sum")
+  xlab("Summer precipitation") + ylab("Floral sum") + facet_wrap(~site)
 summary(lm(total_flowers~accum_summer_precip_cm,data=beedatafocal))
 
 ggplot(beedatafocal, aes(y = floral_days, x = doy_bare_ground)) +
   geom_point() +
   theme_classic(base_size = 15) +
   geom_smooth(method = lm) + 
-  xlab("Snowmelt date") + ylab("Floral days")
+  xlab("Snowmelt date") + ylab("Floral days") + facet_wrap(~site)
 summary(lm(floral_days~doy_bare_ground,data=beedatafocal))
-
 
 ggplot(beedatafocal, aes(y = floral_days, x = accum_summer_precip_cm)) +
   geom_point() +
   theme_classic(base_size = 15) +
   geom_smooth(method = lm) + 
-  xlab("Summer precipitation") + ylab("Floral days") 
+  xlab("Summer precipitation") + ylab("Floral days") + facet_wrap(~site)
 summary(lm(floral_days~accum_summer_precip_cm,data=beedatafocal))
 
 
@@ -1972,4 +2127,7 @@ graph <-
     x = 1, y = 1)
 
 render_graph(graph)
+
+
+
 
