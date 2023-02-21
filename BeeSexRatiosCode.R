@@ -130,17 +130,21 @@ climate_billy<-climate_billy[,c(1,2)]
 temp<-read.csv("bee_sites_temp_2006_2022.csv")
 names(temp)[2:3]<-c("site","date")
 
-### Calculate May-September degree days above 0 C
 # calculate GDD
 temp$GDD_calc<-(temp$Tmax+temp$Tmin)/2
 
-# create column to use in calculating accumulated degree days above 0
+# create column to use in calculating accumulated degree days above 0, and column for below zero
 temp$DD_abovezero<-ifelse(temp$GDD_calc>0, temp$GDD_calc, 0)
+temp$DD_belowzero<-ifelse(temp$GDD_calc<0, temp$GDD_calc, 0)
+
+# convert date to standard format
+temp$date<-mdy(temp$date)
 
 # create year, month, and day columns
 temp$year<-year(temp$date)
 temp$month<-month(temp$date)
 temp$day<-day(temp$date)
+temp$doy<-yday(temp$date)
 
 # calculate May-September cumulative degree days above 0
 climate<-temp %>% filter(month>=5 & month<=9) %>% group_by(site,year) %>% summarise(accum_summer_dd=sum(DD_abovezero))
@@ -148,33 +152,58 @@ climate<-temp %>% filter(month>=5 & month<=9) %>% group_by(site,year) %>% summar
 # add snow data to climate data frame
 snow<-read.csv("bee_sites_snow_2006_2022.csv")
 names(snow)[2:4]<-c("site","year","doy_bare_ground")
-climate<-left_join(climate,snow[,c(2:7)],by=c("site","year"))
 
-# add billy barr presip data to climate data frame
+# calculate length of snow-free season
+snow <- snow %>% mutate(snow_free_days = SnowOnsetDOY_calendar - doy_bare_ground)
+
+# join data frames
+climate<-left_join(climate,snow[,c(2:8)],by=c("site","year"))
+
+# add billy barr precip data to climate data frame
 climate<-left_join(climate,climate_billy,by="year")
 
 # add present year's climate data to bee dataset
 beedatafocal<-left_join(beedatafocal,climate,by=c("site","year"))
 
+# calculate fall freezing degree days without snowpack
+temp<-left_join(temp, snow[,c(2,3,7)], by=c("site","year"))
+temp <- temp %>% mutate(SnowOnsetDOY_calendar=round(SnowOnsetDOY_calendar))
+temp <- temp %>% mutate(snow_day=SnowOnsetDOY_calendar-doy)
+temp2<-temp %>% filter(snow_day>0 & month>=10) %>% group_by(site,year) %>% summarise(fall_freezing_dd_presnow=sum(DD_belowzero)*(-1))
+# assign values from prior year to following year in dataset
+temp2 <- temp2 %>% mutate(year=year+1) %>% rename(prev_yr_fall_freezing_dd_presnow=fall_freezing_dd_presnow)
+
 # add prior year's climate data to bee dataset
 climate_prioryear<-climate
-names(climate_prioryear)[3:8]<-c("prev_yr_accum_summer_dd","prev_yr_doy_bare_ground","prev_yr_SnowOnsetDOY","prev_yr_SnowLengthDays","prev_yr_SnowOnsetDOY_calendar","prev_yr_accum_summer_precip_cm")
-#names(climate_prioryear)[2:8]<-c("prev_yr_accum_summer_precip_cm","prev_yr_accum_summer_dd", "prev_yr_accum_winter_snowfall_cm","prev_yr_mean_snow_depth_cm","prev_yr_snow_cover_days","prev_yr_date_bare_ground", "prev_yr_doy_bare_ground")
+names(climate_prioryear)[3:9]<-c("prev_yr_accum_summer_dd","prev_yr_doy_bare_ground","prev_yr_SnowOnsetDOY","prev_yr_SnowLengthDays","prev_yr_SnowOnsetDOY_calendar","prev_yr_snow_free_days","prev_yr_accum_summer_precip_cm")
 climate_prioryear$year<-climate_prioryear$year+1
+
+climate_prioryear<-left_join(climate_prioryear,temp2,by=c("site","year"))
+
 beedatafocal<-left_join(beedatafocal,climate_prioryear,by=c("site","year"))
 
 # z-score variables of interest
 beedatafocal$accum_summer_precip_cm_z<-as.numeric(scale(beedatafocal$accum_summer_precip_cm, center = TRUE, scale = TRUE))
 beedatafocal$doy_bare_ground_z<-as.numeric(scale(beedatafocal$doy_bare_ground, center = TRUE, scale = TRUE))
+beedatafocal$snow_free_days_z<-as.numeric(scale(beedatafocal$snow_free_days, center = TRUE, scale = TRUE))
 beedatafocal$prev_yr_accum_summer_precip_cm_z<-as.numeric(scale(beedatafocal$prev_yr_accum_summer_precip_cm, center = TRUE, scale = TRUE))
 beedatafocal$prev_yr_doy_bare_ground_z<-as.numeric(scale(beedatafocal$prev_yr_doy_bare_ground, center = TRUE, scale = TRUE))
+beedatafocal$prev_yr_snow_free_days_z<-as.numeric(scale(beedatafocal$prev_yr_snow_free_days, center = TRUE, scale = TRUE))
+beedatafocal$prev_yr_fall_freezing_dd_presnow_z<-as.numeric(scale(beedatafocal$prev_yr_fall_freezing_dd_presnow, center = TRUE, scale = TRUE))
 
 # add floral data
 flowers<-read.csv("focalbeedata_envdata_RMBLsexratios_2022-11-07.csv")
 beedatafocal2<-left_join(beedatafocal,flowers[,c(2,50:65)],by=c("unique_id_year"))
 
 # create csv file
-#write.csv(beedatafocal2,"focalbeedata_envdata_RMBLsexratios_2023-01-26.csv",row.names=FALSE)
+#write.csv(beedatafocal2,"focalbeedata_envdata_RMBLsexratios_2023-02-21.csv",row.names=FALSE)
+
+##### Look at correlations between cliimate variables #####
+beedatafocal<-read.csv("focalbeedata_envdata_RMBLsexratios_2023-01-26.csv")
+
+ggplot(data=beedatafocal, aes(x=doy_bare_ground, y=SnowOnsetDOY)) + geom_point() + theme_bw() + geom_smooth(method="lm") #+ facet_wrap(~site)
+ggplot(data=beedatafocal, aes(x=doy_bare_ground, y=SnowOnsetDOY_calendar)) + geom_point() + theme_bw() + geom_smooth(method="lm") #+ facet_wrap(~site)
+ggplot(data=beedatafocal, aes(x=doy_bare_ground, y=SnowLengthDays)) + geom_point() + theme_bw() + geom_smooth(method="lm") #+ facet_wrap(~site)
 
 ##### Graph relationships between each climate variable and sex ratios #####
 beedatafocal<-read.csv("focalbeedata_envdata_RMBLsexratios_2023-01-26.csv")
@@ -185,6 +214,15 @@ sitelist<-c("Almont","Almont Curve","Beaver","CDOT","Copper","Davids","Elko","Go
 # 18 sites used in Michael's 2020 paper
 #sitelist<-c("Almont","Almont Curve","Beaver","CDOT","Copper","Davids","Elko","Gothic","Hill","Little","Lypps","Mexican Cut","Rustlers","Seans","Tuttle","Willey","Kettle Ponds", "Snodgrass")
 beedatafocal<-filter(beedatafocal, site %in% sitelist)
+
+siteinfo<-read.csv("site_info.csv")
+beedatafocal<-left_join(beedatafocal,siteinfo,by="site")
+
+beedatafocal <- beedatafocal %>%
+  mutate(elev_group=factor(elev_group)) %>% 
+  mutate(elev_group=fct_relevel(elev_group,c("Low","Mid","High")))
+
+levels(beedatafocal$elev_group)
 
 # variables with low pairwise correlations to focus on:
 # accum_summer_precip_cm
@@ -209,6 +247,11 @@ ggplot(beedatafocal, aes(y = sex_binom, x = accum_summer_precip_cm)) +
   theme_classic(base_size = 15) +
   facet_wrap(~genus_species) +
   geom_smooth(method = glm, method.args= list(family="binomial"))
+ggplot(beedatafocal, aes(y = sex_binom, x = accum_summer_precip_cm)) +
+  geom_point() +
+  theme_classic(base_size = 15) +
+  facet_wrap(~elev_group) +
+  geom_smooth(method = glm, method.args= list(family="binomial"))
 # model
 m1 <- glmer(sex_binom ~ accum_summer_precip_cm_z + (1|site) + (1|genus_species), data = beedatafocal, family = binomial)
 summary(m1)
@@ -228,6 +271,11 @@ ggplot(beedatafocal, aes(y = sex_binom, x = doy_bare_ground)) +
   geom_point() +
   theme_classic(base_size = 15) +
   facet_wrap(~genus_species) +
+  geom_smooth(method = glm, method.args= list(family="binomial"))
+ggplot(beedatafocal, aes(y = sex_binom, x = doy_bare_ground)) +
+  geom_point() +
+  theme_classic(base_size = 15) +
+  facet_wrap(~elev_group) +
   geom_smooth(method = glm, method.args= list(family="binomial"))
 # model
 m2 <- glmer(sex_binom ~ doy_bare_ground_z + (1|site) + (1|genus_species), data = beedatafocal, family = binomial)
@@ -249,6 +297,11 @@ ggplot(beedatafocal, aes(y = sex_binom, x = prev_yr_accum_summer_precip_cm)) +
   theme_classic(base_size = 15) +
   facet_wrap(~genus_species) +
   geom_smooth(method = glm, method.args= list(family="binomial"))
+ggplot(beedatafocal, aes(y = sex_binom, x = prev_yr_accum_summer_precip_cm)) +
+  geom_point() +
+  theme_classic(base_size = 15) +
+  facet_wrap(~elev_group) +
+  geom_smooth(method = glm, method.args= list(family="binomial"))
 # model
 # prev_yr_accum_summer_precip_cm_z
 m3 <- glmer(sex_binom ~ prev_yr_accum_summer_precip_cm_z + (1|site) + (1|genus_species), data = beedatafocal, family = binomial)
@@ -269,6 +322,11 @@ ggplot(beedatafocal, aes(y = sex_binom, x = prev_yr_doy_bare_ground)) +
   geom_point() +
   theme_classic(base_size = 15) +
   facet_wrap(~genus_species) +
+  geom_smooth(method = glm, method.args= list(family="binomial"))
+ggplot(beedatafocal, aes(y = sex_binom, x = prev_yr_doy_bare_ground)) +
+  geom_point() +
+  theme_classic(base_size = 15) +
+  facet_wrap(~elev_group) +
   geom_smooth(method = glm, method.args= list(family="binomial"))
 # model
 m4 <- glmer(sex_binom ~ prev_yr_doy_bare_ground_z + (1|site) + (1|genus_species), data = beedatafocal, family = binomial)
@@ -876,10 +934,21 @@ vif(m2)
 
 ##### SEMs: all species #####
 
-beedatafocal<-read.csv("focalbeedata_envdata_RMBLsexratios_2023-01-26.csv")
+beexdatafocal<-read.csv("focalbeedata_envdata_RMBLsexratios_2023-01-26.csv")
 # subset to just include focal sites
 sitelist<-c("Almont","Almont Curve","Beaver","CDOT","Copper","Davids","Elko","Gothic","Hill","Little","Lypps","Mexican Cut","Rustlers","Seans","Tuttle","Willey")
 beedatafocal<-filter(beedatafocal, site %in% sitelist) 
+
+siteinfo<-read.csv("site_info.csv")
+beedatafocal<-left_join(beedatafocal,siteinfo,by="site")
+
+beedatafocal <- beedatafocal %>%
+  mutate(elev_group=factor(elev_group)) %>% 
+  mutate(elev_group=fct_relevel(elev_group,c("Low","Mid","High")))
+
+levels(beedatafocal$elev_group)
+
+beedatafocal<-filter(beedatafocal, elev_group=="Mid") 
 
 # # just look at mid-elevation sites
 # siteinfo<-read.csv("site_info.csv")
@@ -1260,9 +1329,145 @@ render_graph(graph)
 
 
 
-##### SEMs: all species, Irwin floral data #####
+##### SEMs: all species, Irwin floral data + Gothic floral data #####
+
+beexdatafocal<-read.csv("focalbeedata_envdata_RMBLsexratios_2023-01-26.csv")
+# subset to just include focal sites
+sitelist<-c("Almont","Almont Curve","Beaver","CDOT","Copper","Davids","Elko","Gothic","Hill","Little","Lypps","Mexican Cut","Rustlers","Seans","Tuttle","Willey")
+beedatafocal<-filter(beedatafocal, site %in% sitelist) 
+
+siteinfo<-read.csv("site_info.csv")
+beedatafocal<-left_join(beedatafocal,siteinfo,by="site")
+
+beedatafocal <- beedatafocal %>%
+  mutate(elev_group=factor(elev_group)) %>% 
+  mutate(elev_group=fct_relevel(elev_group,c("Low","Mid","High")))
+
+levels(beedatafocal$elev_group)
 
 beedatafocal<-filter(beedatafocal,!is.na(prev_yr_floral_sum_irwin))
+
+### piecewise SEM: all prior year's climate and floral predictor variables ###
+sem1<-psem(
+  
+  # effects of climate on sex ratios
+  glmer(sex_binom ~ prev_yr_doy_bare_ground_z +
+          prev_yr_accum_summer_precip_cm_z +
+          prev_yr_floral_days_z +
+          prev_yr_floral_sum_irwin_z +
+          (1|site) + (1|genus_species),
+        data = beedatafocal, family = binomial),
+  
+  # effects of climate on flowers
+  lm(prev_yr_floral_days_z ~
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal),
+  
+  lm(prev_yr_floral_sum_irwin_z ~ prev_yr_floral_days_z +
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal)
+  
+)
+
+summary(sem1, .progressBar = F)
+
+# plotting the SEM! resources:
+# https://rdrr.io/cran/DiagrammeR/man/create_graph.html
+# also: https://rich-iannone.github.io/DiagrammeR/graphs.html
+
+coef<-summary(sem1, .progressBar = F)$coef
+coef
+unique(coef$Response)
+unique(coef$Predictor)
+
+coef$to<-coef$Response
+coef$from<-coef$Predictor
+
+coef$to[coef$to=="sex_binom"] <- 1
+coef$to[coef$to=="prev_yr_floral_days_z"] <- 2
+coef$to[coef$to=="prev_yr_floral_sum_irwin_z"] <- 3
+coef$to[coef$to=="prev_yr_doy_bare_ground_z"] <- 4
+coef$to[coef$to=="prev_yr_accum_summer_precip_cm_z"] <- 5
+
+coef$from[coef$from=="sex_binom"] <- 1
+coef$from[coef$from=="prev_yr_floral_days_z"] <- 2
+coef$from[coef$from=="prev_yr_floral_sum_irwin_z"] <- 3
+coef$from[coef$from=="prev_yr_doy_bare_ground_z"] <- 4
+coef$from[coef$from=="prev_yr_accum_summer_precip_cm_z"] <- 5
+
+coef$style<-ifelse(coef$Estimate>0,"solid","dashed")
+coef$color<-ifelse(coef$P.Value>=0.05,"gray","black")
+
+ndf <-
+  create_node_df(
+    n = 5,
+    fontsize=6,
+    fixedsize=TRUE,
+    color="black",
+    fillcolor="lightgray",
+    penwidth=0.5,
+    shape="rectangle",
+    width=0.7,
+    height=0.3,
+    label = c("Female/male \nratio","Floral days \n(prior year)", "Floral sum \n(prior year)","Snowmelt date \n(prior year)","Summer precip. \n(prior year)"))
+
+graph <-
+  create_graph(
+    nodes_df = ndf)
+
+render_graph(graph)
+
+edf <-
+  create_edge_df(
+    from = coef$from,
+    to = coef$to,
+    rel = "leading_to",
+    label = round(coef$Estimate,digits=2),
+    penwidth = abs(coef$Estimate*2),
+    fontsize=5.5,
+    fontcolor="brown3",
+    color=coef$color,
+    style=coef$style)
+
+graph <-
+  create_graph(
+    nodes_df = ndf,
+    edges_df = edf)
+
+render_graph(graph)
+
+graph <-
+  graph %>%
+  set_node_position(
+    node = 1, # sex ratio
+    x = 3, y = 1.5) %>%
+  set_node_position(
+    node = 2, # floral days
+    x = 2, y = 1) %>%
+  set_node_position(
+    node = 3, # floral sum
+    x = 2, y = 2) %>%
+  set_node_position(
+    node = 4, # snowmelt date
+    x = 1, y = 2) %>%
+  set_node_position(
+    node = 5, # summer precip
+    x = 1, y = 1)
+
+render_graph(graph)
+
+
+##### SEMs: all species, Irwin floral data #####
+
+beexdatafocal<-read.csv("focalbeedata_envdata_RMBLsexratios_2023-01-26.csv")
+# subset to just include focal sites
+sitelist<-c("Almont","Almont Curve","Beaver","CDOT","Copper","Davids","Elko","Gothic","Hill","Little","Lypps","Mexican Cut","Rustlers","Seans","Tuttle","Willey")
+beedatafocal<-filter(beedatafocal, site %in% sitelist) 
+
+siteinfo<-read.csv("site_info.csv")
+beedatafocal<-left_join(beedatafocal,siteinfo,by="site")
 
 ### piecewise SEM: all prior year's climate and floral predictor variables ###
 sem1<-psem(
@@ -1275,7 +1480,7 @@ sem1<-psem(
         data = beedatafocal, family = binomial),
   
   # effects of climate on flowers
-  lm(prev_yr_floral_sum_irwin_z ~ prev_yr_floral_days_z +
+  lm(prev_yr_floral_sum_irwin_z ~
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
      data = beedatafocal)
@@ -1283,6 +1488,86 @@ sem1<-psem(
 )
 
 summary(sem1, .progressBar = F)
+
+# plotting the SEM! resources:
+# https://rdrr.io/cran/DiagrammeR/man/create_graph.html
+# also: https://rich-iannone.github.io/DiagrammeR/graphs.html
+
+coef<-summary(sem1, .progressBar = F)$coef
+coef
+unique(coef$Response)
+unique(coef$Predictor)
+
+coef$to<-coef$Response
+coef$from<-coef$Predictor
+
+coef$to[coef$to=="sex_binom"] <- 1
+coef$to[coef$to=="prev_yr_floral_sum_irwin_z"] <- 2
+coef$to[coef$to=="prev_yr_doy_bare_ground_z"] <- 3
+coef$to[coef$to=="prev_yr_accum_summer_precip_cm_z"] <- 4
+
+coef$from[coef$from=="sex_binom"] <- 1
+coef$from[coef$from=="prev_yr_floral_sum_irwin_z"] <- 2
+coef$from[coef$from=="prev_yr_doy_bare_ground_z"] <- 3
+coef$from[coef$from=="prev_yr_accum_summer_precip_cm_z"] <- 4
+
+coef$style<-ifelse(coef$Estimate>0,"solid","dashed")
+coef$color<-ifelse(coef$P.Value>=0.05,"gray","black")
+
+ndf <-
+  create_node_df(
+    n = 4,
+    fontsize=6,
+    fixedsize=TRUE,
+    color="black",
+    fillcolor="lightgray",
+    penwidth=0.5,
+    shape="rectangle",
+    width=0.7,
+    height=0.3,
+    label = c("Female/male \nratio","Floral sum \n(prior year)","Snowmelt date \n(prior year)","Summer precip. \n(prior year)"))
+
+graph <-
+  create_graph(
+    nodes_df = ndf)
+
+render_graph(graph)
+
+edf <-
+  create_edge_df(
+    from = coef$from,
+    to = coef$to,
+    rel = "leading_to",
+    label = round(coef$Estimate,digits=2),
+    penwidth = abs(coef$Estimate*2),
+    fontsize=5.5,
+    fontcolor="brown3",
+    color=coef$color,
+    style=coef$style)
+
+graph <-
+  create_graph(
+    nodes_df = ndf,
+    edges_df = edf)
+
+render_graph(graph)
+
+graph <-
+  graph %>%
+  set_node_position(
+    node = 1, # sex ratio
+    x = 3, y = 1.5) %>%
+  set_node_position(
+    node = 2, # floral sum
+    x = 2, y = 2) %>%
+  set_node_position(
+    node = 3, # snowmelt date
+    x = 1, y = 2) %>%
+  set_node_position(
+    node = 4, # summer precip
+    x = 1, y = 1)
+
+render_graph(graph)
 
 
 ##### SEMs: individual species #####
