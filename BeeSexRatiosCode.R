@@ -17,6 +17,7 @@ library(lubridate)
 library(visreg)
 library(ggplot2)
 library(DiagrammeR)
+library(tidyverse)
 
 # set wd
 setwd("~/Documents/*RMBLPhenology/Projects/BeeSexRatios/Analyses")
@@ -120,11 +121,31 @@ beedatafocal$site[beedatafocal$site == "Kettle ponds"] <- "Kettle Ponds"
 beedatafocal$site[beedatafocal$site == "snodgrass"] <- "Snodgrass"
 unique(beedatafocal$site)
 
-##### Add climate data #####
-# read in billy barr climate data
+##### Look at correlation between billy's precip data and interpolated precip data #####
 climate_billy<-read.csv("weather_summaries_billybarr_forsexratios.csv")
-# remove variables included in Ian's dataset
-climate_billy<-climate_billy[,c(1,2)]
+precip_interp<-read.csv("may-sept_precip_pred_2023-03-14.csv")
+
+# rename site column
+names(precip_interp)[1]<-"site"
+# make column for precip in mm
+precip_interp<-precip_interp %>% mutate(accum_summer_precip_cm=Precip_mm/10)
+
+names(climate_billy)[2]<-"billy_accum_summer_precip_cm"
+names(precip_interp)[4]<-"interp_accum_summer_precip_cm"
+
+precip_interp<-left_join(precip_interp,climate_billy,by="year")
+
+ggplot(data=precip_interp, aes(x=billy_accum_summer_precip_cm, y=interp_accum_summer_precip_cm)) + geom_point() + theme_bw() + geom_smooth(method="lm")
+
+ggplot(data=precip_interp, aes(x=billy_accum_summer_precip_cm, y=interp_accum_summer_precip_cm)) + geom_point() + theme_bw() + geom_smooth(method="lm") + facet_wrap(~site) + geom_abline(intercept = 0, slope = 1)
+
+
+##### Add climate data #####
+
+# # read in billy barr climate data
+# climate_billy<-read.csv("weather_summaries_billybarr_forsexratios.csv")
+# # remove variables included in Ian's dataset
+# climate_billy<-climate_billy[,c(1,2)]
 
 # read in Ian's temperature data
 temp<-read.csv("bee_sites_temp_2006_2022.csv")
@@ -159,8 +180,18 @@ snow <- snow %>% mutate(snow_free_days = SnowOnsetDOY_calendar - doy_bare_ground
 # join data frames
 climate<-left_join(climate,snow[,c(2:8)],by=c("site","year"))
 
-# add billy barr precip data to climate data frame
-climate<-left_join(climate,climate_billy,by="year")
+# # add billy barr precip data to climate data frame
+# climate<-left_join(climate,climate_billy,by="year")
+
+# read in interpolated precip data
+precip_interp<-read.csv("may-sept_precip_pred_2023-03-14.csv")
+# rename site column
+names(precip_interp)[1]<-"site"
+# make column for precip in mm
+precip_interp<-precip_interp %>% mutate(accum_summer_precip_cm=Precip_mm/10)
+
+# add interpolated precip. data to climate data frame
+climate<-left_join(climate,precip_interp[,c(1,3,4)],by=c("site","year"))
 
 # add present year's climate data to bee dataset
 beedatafocal<-left_join(beedatafocal,climate,by=c("site","year"))
@@ -196,17 +227,17 @@ flowers<-read.csv("focalbeedata_envdata_RMBLsexratios_2022-11-07.csv")
 beedatafocal2<-left_join(beedatafocal,flowers[,c(2,50:65)],by=c("unique_id_year"))
 
 # create csv file
-#write.csv(beedatafocal2,"focalbeedata_envdata_RMBLsexratios_2023-02-21.csv",row.names=FALSE)
+#write.csv(beedatafocal2,"focalbeedata_envdata_RMBLsexratios_2023-03-23.csv",row.names=FALSE)
 
-##### Look at correlations between cliimate variables #####
-beedatafocal<-read.csv("focalbeedata_envdata_RMBLsexratios_2023-01-26.csv")
+##### Look at correlations between climate variables #####
+beedatafocal<-read.csv("focalbeedata_envdata_RMBLsexratios_2023-03-23.csv")
 
 ggplot(data=beedatafocal, aes(x=doy_bare_ground, y=SnowOnsetDOY)) + geom_point() + theme_bw() + geom_smooth(method="lm") #+ facet_wrap(~site)
 ggplot(data=beedatafocal, aes(x=doy_bare_ground, y=SnowOnsetDOY_calendar)) + geom_point() + theme_bw() + geom_smooth(method="lm") #+ facet_wrap(~site)
 ggplot(data=beedatafocal, aes(x=doy_bare_ground, y=SnowLengthDays)) + geom_point() + theme_bw() + geom_smooth(method="lm") #+ facet_wrap(~site)
 
 ##### Graph relationships between each climate variable and sex ratios #####
-beedatafocal<-read.csv("focalbeedata_envdata_RMBLsexratios_2023-01-26.csv")
+beedatafocal<-read.csv("focalbeedata_envdata_RMBLsexratios_2023-03-23.csv")
 
 # subset to just include focal sites
 # 16 sites currently sampled
@@ -218,6 +249,7 @@ beedatafocal<-filter(beedatafocal, site %in% sitelist)
 siteinfo<-read.csv("site_info.csv")
 beedatafocal<-left_join(beedatafocal,siteinfo,by="site")
 
+library(tidyverse)
 beedatafocal <- beedatafocal %>%
   mutate(elev_group=factor(elev_group)) %>% 
   mutate(elev_group=fct_relevel(elev_group,c("Low","Mid","High")))
@@ -255,6 +287,7 @@ ggplot(beedatafocal, aes(y = sex_binom, x = accum_summer_precip_cm)) +
 # model
 m1 <- glmer(sex_binom ~ accum_summer_precip_cm_z + (1|site) + (1|genus_species), data = beedatafocal, family = binomial)
 summary(m1)
+library(effects)
 plot(allEffects(m1))
 
 # doy_bare_ground
@@ -329,13 +362,21 @@ ggplot(beedatafocal, aes(y = sex_binom, x = prev_yr_doy_bare_ground)) +
   facet_wrap(~elev_group) +
   geom_smooth(method = glm, method.args= list(family="binomial"))
 # model
-m4 <- glmer(sex_binom ~ prev_yr_doy_bare_ground_z + (1|site) + (1|genus_species), data = beedatafocal, family = binomial)
+m4 <- glmer(sex_binom ~ prev_yr_doy_bare_ground + (1|site) + (1|genus_species), data = beedatafocal, family = binomial)
 summary(m4)
 plot(allEffects(m4))
 
+library(visreg)
+dev.off()
+p<-visreg(m4,"prev_yr_doy_bare_ground",type="conditional", scale="response", gg=TRUE) 
+p<- p + xlab("Prior year's snowmelt date") + ylab("Sex \n(female=1, male=0") +
+  theme_bw(base_size = 17)
+p
+
+
 
 ##### GLMMs: Across species, do climate variables together predict female/male counts? #####
-beedatafocal<-read.csv("focalbeedata_envdata_RMBLsexratios_2023-01-26.csv")
+beedatafocal<-read.csv("focalbeedata_envdata_RMBLsexratios_2023-03-23.csv")
 
 # subset to just include focal sites
 # 16 sites currently sampled
@@ -407,6 +448,9 @@ summary(m15)
 rsquared(m15)
 vif(m15)
 
+df<-data.frame(summary(m15)$coefficients)
+write.csv(df,"output.csv")
+
 # get summary from best single-variable model
 summary(m4)
 rsquared(m4)
@@ -424,7 +468,7 @@ vif(m13)
 vif(m14)
 
 ##### GLMMs: For each species individually, how does climate relate to female/male counts? #####
-beedatafocal<-read.csv("focalbeedata_envdata_RMBLsexratios_2023-01-26.csv")
+beedatafocal<-read.csv("focalbeedata_envdata_RMBLsexratios_2023-03-23.csv")
 
 # subset to just include focal sites
 sitelist<-c("Almont","Almont Curve","Beaver","CDOT","Copper","Davids","Elko","Gothic","Hill","Little","Lypps","Mexican Cut","Rustlers","Seans","Tuttle","Willey")
@@ -618,14 +662,14 @@ aicc$predictors<-c("accum_summer_precip_cm_z", "doy_bare_ground_z", "prev_yr_acc
 aicc<-aicc[,-c(2:3)]
 output<-left_join(output,aicc,by="model")
 
-#write.csv(output,"species_glmms_climate_sex_ratios_2023-02-02.csv", row.names = FALSE)
+#write.csv(output,"species_glmms_climate_sex_ratios_2023-03-23.csv", row.names = FALSE)
 
 
 
 
 
 ##### For individual species: graphs of relationships with different climate variables #####
-results<-read.csv("species_glmms_climate_sex_ratios_2023-02-01.csv")
+results<-read.csv("species_glmms_climate_sex_ratios_2023-03-23.csv")
 bestmodels<-filter(results,delta_AICc==0)
 slopes_long<-pivot_longer(bestmodels[,c(21,1,22,8:11)],cols=4:7,values_to="slope")
 names(slopes_long)[4]<-"term"
@@ -786,7 +830,7 @@ beedatafocal$prev_yr_floral_sum_irwin_z<-as.numeric(scale(beedatafocal$prev_yr_f
 
 ##### Relationships between climate and floral variables: Inouye data #####
 
-beedatafocal<-read.csv("focalbeedata_envdata_RMBLsexratios_2023-01-26.csv")
+beedatafocal<-read.csv("focalbeedata_envdata_RMBLsexratios_2023-03-23.csv")
 
 # subset to just include focal sites
 sitelist<-c("Almont","Almont Curve","Beaver","CDOT","Copper","Davids","Elko","Gothic","Hill","Little","Lypps","Mexican Cut","Rustlers","Seans","Tuttle","Willey")
@@ -827,7 +871,7 @@ ggplot(beedatafocal, aes(y = floral_days, x = accum_summer_precip_cm)) +
   geom_point() +
   theme_classic(base_size = 15) +
   geom_smooth(method = lm) + 
-  xlab("Summer precipitation") + ylab("Floral days") #+ facet_wrap(~site)
+  xlab("Summer precipitation") + ylab("Floral days") + facet_wrap(~site)
 summary(lm(floral_days~accum_summer_precip_cm,data=beedatafocal))
 
 
@@ -934,7 +978,7 @@ vif(m2)
 
 ##### SEMs: all species #####
 
-beexdatafocal<-read.csv("focalbeedata_envdata_RMBLsexratios_2023-01-26.csv")
+beedatafocal<-read.csv("focalbeedata_envdata_RMBLsexratios_2023-03-23.csv")
 # subset to just include focal sites
 sitelist<-c("Almont","Almont Curve","Beaver","CDOT","Copper","Davids","Elko","Gothic","Hill","Little","Lypps","Mexican Cut","Rustlers","Seans","Tuttle","Willey")
 beedatafocal<-filter(beedatafocal, site %in% sitelist) 
@@ -1572,7 +1616,7 @@ render_graph(graph)
 
 ##### SEMs: individual species #####
 
-results<-read.csv("species_glmms_climate_sex_ratios.csv")
+results<-read.csv("species_glmms_climate_sex_ratios_2023-03-23.csv")
 bestmodels<-filter(results,delta_AICc==0)
 
 ### species set 1 ###
@@ -1614,6 +1658,9 @@ sem1<-psem(
 
 summary(sem1, .progressBar = F)
 
+# plotting the SEM! resources:
+# https://rdrr.io/cran/DiagrammeR/man/create_graph.html
+# also: https://rich-iannone.github.io/DiagrammeR/graphs.html
 
 coef<-summary(sem1, .progressBar = F)$coef
 coef
@@ -1647,9 +1694,9 @@ ndf <-
     fillcolor="lightgray",
     penwidth=0.5,
     shape="rectangle",
-    width=0.5,
+    width=0.7,
     height=0.3,
-    label = c("Sex \nratio","Floral \ndays", "Floral \nsum","Snowmelt \ndate","Summer \nprecipitation"))
+    label = c("Female/male \nratio","Floral days \n(prior year)", "Floral sum \n(prior year)","Snowmelt date \n(prior year)","Summer precip. \n(prior year)"))
 
 graph <-
   create_graph(
@@ -1673,6 +1720,26 @@ graph <-
   create_graph(
     nodes_df = ndf,
     edges_df = edf)
+
+render_graph(graph)
+
+graph <-
+  graph %>%
+  set_node_position(
+    node = 1, # sex ratio
+    x = 3, y = 1.5) %>%
+  set_node_position(
+    node = 2, # floral days
+    x = 2, y = 1) %>%
+  set_node_position(
+    node = 3, # floral sum
+    x = 2, y = 2) %>%
+  set_node_position(
+    node = 4, # snowmelt date
+    x = 1, y = 2) %>%
+  set_node_position(
+    node = 5, # summer precip
+    x = 1, y = 1)
 
 render_graph(graph)
 
