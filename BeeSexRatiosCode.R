@@ -22,6 +22,17 @@ library(tidyverse)
 # set wd
 setwd("~/Documents/*RMBLPhenology/Projects/BeeSexRatios/Analyses")
 
+# DECISIONS ABOUT ANALYSES
+# (1) GLMMs Across species, do climate variables together predict female/male counts? For focal variables, try 2 ways:
+# -- prior year's snowmelt and precip, present year's snowmelt and precip
+# -- prior year's snowmelt and precip, prior winter's temp
+
+# (2) GLMMs for individual species, in corresponding way as above
+# (3) SEM across species: just prior year's variables, as originally done
+# (4) SEM for individual species: as above
+
+
+ 
 ##### Bee data manipulation and formatting #####
 
 # read in bee and climate data
@@ -170,6 +181,17 @@ temp$doy<-yday(temp$date)
 # calculate May-September cumulative degree days above 0
 climate<-temp %>% filter(month>=5 & month<=9) %>% group_by(site,year) %>% summarise(accum_summer_dd=sum(DD_abovezero))
 
+# # calculate October-April mean temperature
+# temp<-temp %>% mutate(Tmean=(Tmax+Tmin)/2,
+#                       water_year=ifelse(month>=10,year+1,year))
+# wintertemp<-temp %>% filter(month>=10 | month<=4) %>% group_by(site,water_year) %>% summarise(winter_temp_mean=mean(Tmean))
+# 
+# snow<-read.csv("bee_sites_snow_2006_2022.csv")
+# names(snow)[2:4]<-c("site","water_year","doy_bare_ground")
+# wintertemp<-left_join(wintertemp, snow[,c(2,3,4)], by=c("site","water_year"))
+# 
+# ggplot(data=wintertemp, aes(x=winter_temp_mean, y=doy_bare_ground)) + geom_point() + theme_bw() + geom_smooth(method="lm") #+ facet_wrap(~site)
+
 # add snow data to climate data frame
 snow<-read.csv("bee_sites_snow_2006_2022.csv")
 names(snow)[2:4]<-c("site","year","doy_bare_ground")
@@ -233,8 +255,14 @@ beedatafocal2<-left_join(beedatafocal,flowers[,c(2,50:65)],by=c("unique_id_year"
 beedatafocal<-read.csv("focalbeedata_envdata_RMBLsexratios_2023-03-23.csv")
 
 ggplot(data=beedatafocal, aes(x=doy_bare_ground, y=SnowOnsetDOY)) + geom_point() + theme_bw() + geom_smooth(method="lm") #+ facet_wrap(~site)
+
 ggplot(data=beedatafocal, aes(x=doy_bare_ground, y=SnowOnsetDOY_calendar)) + geom_point() + theme_bw() + geom_smooth(method="lm") #+ facet_wrap(~site)
+
 ggplot(data=beedatafocal, aes(x=doy_bare_ground, y=SnowLengthDays)) + geom_point() + theme_bw() + geom_smooth(method="lm") #+ facet_wrap(~site)
+
+ggplot(data=beedatafocal, aes(x=doy_bare_ground, y=SnowLengthDays)) + geom_point() + theme_bw() + geom_smooth(method="lm") #+ facet_wrap(~site)
+
+
 
 ##### Graph relationships between each climate variable and sex ratios #####
 beedatafocal<-read.csv("focalbeedata_envdata_RMBLsexratios_2023-03-23.csv")
@@ -449,7 +477,7 @@ rsquared(m15)
 vif(m15)
 
 df<-data.frame(summary(m15)$coefficients)
-write.csv(df,"output.csv")
+#write.csv(df,"output.csv")
 
 # get summary from best single-variable model
 summary(m4)
@@ -1616,22 +1644,14 @@ render_graph(graph)
 
 ##### SEMs: individual species #####
 
-results<-read.csv("species_glmms_climate_sex_ratios_2023-03-23.csv")
-bestmodels<-filter(results,delta_AICc==0)
+beedatafocal<-read.csv("focalbeedata_envdata_RMBLsexratios_2023-03-23.csv")
+# subset to just include focal sites
+sitelist<-c("Almont","Almont Curve","Beaver","CDOT","Copper","Davids","Elko","Gothic","Hill","Little","Lypps","Mexican Cut","Rustlers","Seans","Tuttle","Willey")
+beedatafocal<-filter(beedatafocal, site %in% sitelist) 
 
-### species set 1 ###
+### Halictus rubicundus ###
 
-filter(bestmodels,genus_species=="Halictus rubicundus")$predictors
 focal<-filter(beedatafocal,genus_species=="Halictus rubicundus")
-
-filter(bestmodels,genus_species=="Halictus virgatellus")$predictors
-focal<-filter(beedatafocal,genus_species=="Halictus virgatellus")
-
-filter(bestmodels,genus_species=="Panurginus cressoniellus")$predictors
-focal<-filter(beedatafocal,genus_species=="Panurginus cressoniellus")
-
-filter(bestmodels,genus_species=="Dufourea harveyi")$predictors
-focal<-filter(beedatafocal,genus_species=="Dufourea harveyi")
 
 sem1<-psem(
   
