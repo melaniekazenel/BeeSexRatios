@@ -19,15 +19,12 @@ library(ggplot2)
 library(DiagrammeR)
 library(tidyverse)
 library(semEff)
+library(DiagrammeRsvg)
+library(rsvg)
 
 
 # set wd
 setwd("~/Documents/*RMBLPhenology/Projects/BeeSexRatios/Analyses")
-
-# DECISIONS ABOUT ANALYSES
-# (3) SEM across species: just prior year's variables, as originally done
-# (4) SEM for individual species: as above
-
 
 ##### Bee data manipulation and formatting #####
 
@@ -836,13 +833,19 @@ beedatafocal<-read.csv("focalbeedata_envdata_RMBLsexratios_2023-03-24.csv")
 sitelist<-c("Almont","Almont Curve","Beaver","CDOT","Copper","Davids","Elko","Gothic","Hill","Little","Lypps","Mexican Cut","Rustlers","Seans","Tuttle","Willey")
 beedatafocal<-filter(beedatafocal, site %in% sitelist) 
 
-# just look at mid-elevation sites
-siteinfo<-read.csv("site_info.csv")
-beedatafocal<-left_join(beedatafocal,siteinfo,by="site")
-beedatafocal<-filter(beedatafocal, elev_group=="Mid") 
+# # just look at mid-elevation sites
+# siteinfo<-read.csv("site_info.csv")
+# beedatafocal<-left_join(beedatafocal,siteinfo,by="site")
+# beedatafocal<-filter(beedatafocal, elev_group=="Mid") 
 
-# optional: remove outlier floral resource year (remove 2016 for examining previous year's resources)
-#beedatafocal<-subset(beedatafocal,year!=2016)
+# optional: remove outlier floral resource year -- 2015 (remove 2016 for examining previous year's resources)
+#beedatafocal<-subset(beedatafocal,year!=2015)
+
+# look at years associated with individual bee species
+#beedatafocal<-filter(beedatafocal, genus_species=="Ceratina nanula")
+#unique(beedatafocal$year)
+# beedatafocal<-filter(beedatafocal, genus_species=="Dufourea harveyi")
+# unique(beedatafocal$year)
 
 # exploratory graphs: relationships between climate and floral variables
 
@@ -850,48 +853,42 @@ ggplot(beedatafocal, aes(y = total_flowers, x = doy_bare_ground)) +
   geom_point() +
   theme_classic(base_size = 15) +
   geom_smooth(method = lm) + 
-  xlab("Snowmelt date") + ylab("Floral sum") #+ facet_wrap(~site)
+  xlab("Snowmelt date") + ylab("Floral sum") + facet_wrap(~site)
 summary(lm(total_flowers~doy_bare_ground,data=beedatafocal))
 
 ggplot(beedatafocal, aes(y = total_flowers, x = accum_summer_precip_cm)) +
   geom_point() +
   theme_classic(base_size = 15) +
   geom_smooth(method = lm) + 
-  xlab("Summer precipitation") + ylab("Floral sum") #+ facet_wrap(~site)
+  xlab("Summer precipitation") + ylab("Floral sum") + facet_wrap(~site)
 summary(lm(total_flowers~accum_summer_precip_cm,data=beedatafocal))
 
 ggplot(beedatafocal, aes(y = floral_days, x = doy_bare_ground)) +
   geom_point() +
   theme_classic(base_size = 15) +
   geom_smooth(method = lm) + 
-  xlab("Snowmelt date") + ylab("Floral days") #+ facet_wrap(~site)
+  xlab("Snowmelt date") + ylab("Floral days") + facet_wrap(~site)
 summary(lm(floral_days~doy_bare_ground,data=beedatafocal))
 
 ggplot(beedatafocal, aes(y = floral_days, x = accum_summer_precip_cm)) +
   geom_point() +
   theme_classic(base_size = 15) +
   geom_smooth(method = lm) + 
-  xlab("Summer precipitation") + ylab("Floral days") + facet_wrap(~site)
+  xlab("Summer precipitation") + ylab("Floral days") #+ facet_wrap(~site)
 summary(lm(floral_days~accum_summer_precip_cm,data=beedatafocal))
 
 
-##### SEMs: all species #####
+
+
+
+################ SEMs: all species ################
 
 beedatafocal<-read.csv("focalbeedata_envdata_RMBLsexratios_2023-03-24.csv")
 # subset to just include focal sites
 sitelist<-c("Almont","Almont Curve","Beaver","CDOT","Copper","Davids","Elko","Gothic","Hill","Little","Lypps","Mexican Cut","Rustlers","Seans","Tuttle","Willey")
 beedatafocal<-filter(beedatafocal, site %in% sitelist) 
 
-# # just look at mid-elevation sites
-# siteinfo<-read.csv("site_info.csv")
-# beedatafocal<-left_join(beedatafocal,siteinfo,by="site")
-# beedatafocal <- beedatafocal %>%
-#   mutate(elev_group=factor(elev_group)) %>% 
-#   mutate(elev_group=fct_relevel(elev_group,c("Low","Mid","High")))
-# levels(beedatafocal$elev_group)
-# beedatafocal<-filter(beedatafocal, elev_group=="Mid") 
-
-### (full) SEM: all prior year's climate and floral predictor variables #####
+### (full) SEM: all prior year's climate and floral predictor variables 
 semFull<-psem(
 
   # effects of climate on sex ratios
@@ -951,7 +948,7 @@ ndf <-
     fontsize=6,
     fixedsize=TRUE,
     color="black",
-    fillcolor="lightgray",
+        fontcolor="black",     fillcolor="white",     fontname="Baskerville",
     penwidth=0.5,
     shape="rectangle",
     width=0.7,
@@ -1004,7 +1001,7 @@ graph <-
 render_graph(graph)
 
 
-### (1) SEM: snowmelt #####
+### (1) SEM: snowmelt 
 sem1<-psem(
   
   # effects of climate on sex ratios
@@ -1029,7 +1026,7 @@ summary(sem1, .progressBar = F)
 plot(sem1)
 
 
-### (2) SEM: snowmelt, floral sum #####
+### (2) SEM: snowmelt, floral sum 
 sem2<-psem(
   
   # effects of climate on sex ratios
@@ -1054,7 +1051,7 @@ sem2<-psem(
 summary(sem2, .progressBar = F)
 plot(sem2)
 
-### (3) SEM: snowmelt, floral days #####
+### (3) SEM: snowmelt, floral days 
 sem3<-psem(
   
   # effects of climate on sex ratios
@@ -1079,7 +1076,7 @@ sem3<-psem(
 summary(sem3, .progressBar = F)
 plot(sem3)
 
-### (4) SEM: snowmelt, precip #####
+### (4) SEM: snowmelt, precip 
 sem4<-psem(
   
   # effects of climate on sex ratios
@@ -1104,7 +1101,7 @@ sem4<-psem(
 summary(sem4, .progressBar = F)
 plot(sem4)
 
-### (5) SEM: precip #####
+### (5) SEM: precip 
 sem5<-psem(
   
   # effects of climate on sex ratios
@@ -1129,7 +1126,7 @@ sem5<-psem(
 summary(sem5, .progressBar = F)
 plot(sem5)
 
-### (6) SEM: precip, floral sum #####
+### (6) SEM: precip, floral sum 
 sem6<-psem(
   
   # effects of climate on sex ratios
@@ -1155,7 +1152,7 @@ sem6<-psem(
 summary(sem6, .progressBar = F)
 plot(sem6)
 
-### (7) SEM: precip, floral days #####
+### (7) SEM: precip, floral days 
 sem7<-psem(
   
   # effects of climate on sex ratios
@@ -1182,7 +1179,7 @@ summary(sem7, .progressBar = F)
 plot(sem7)
 
 
-### (8) SEM: floral sum, floral days #####
+### (8) SEM: floral sum, floral days 
 sem8<-psem(
   
   # effects of climate on sex ratios
@@ -1209,7 +1206,7 @@ summary(sem8, .progressBar = F)
 plot(sem8)
 
 
-### (9) SEM: floral sum #####
+### (9) SEM: floral sum 
 sem9<-psem(
   
   # effects of climate on sex ratios
@@ -1234,7 +1231,7 @@ sem9<-psem(
 summary(sem9, .progressBar = F)
 plot(sem9)
 
-### (10) SEM: floral days #####
+### (10) SEM: floral days 
 sem10<-psem(
   
   # effects of climate on sex ratios
@@ -1264,7 +1261,7 @@ plot(sem10)
 
 
 
-### (11) SEM: snowmelt, precip, floral sum #####
+### (11) SEM: snowmelt, precip, floral sum 
 sem11<-psem(
   
   # effects of climate on sex ratios
@@ -1291,7 +1288,7 @@ summary(sem11, .progressBar = F)
 plot(sem11)
 
 
-### (12) SEM: snowmelt, precip, floral days #####
+### (12) SEM: snowmelt, precip, floral days 
 sem12<-psem(
   
   # effects of climate on sex ratios
@@ -1317,7 +1314,7 @@ sem12<-psem(
 summary(sem12, .progressBar = F)
 plot(sem12)
 
-### (13) SEM: snowmelt, floral sum, floral days #####
+### (13) SEM: snowmelt, floral sum, floral days 
 sem13<-psem(
   
   # effects of climate on sex ratios
@@ -1343,7 +1340,7 @@ sem13<-psem(
 summary(sem13, .progressBar = F)
 plot(sem13)
 
-### (14) SEM: precip, floral sum, floral days #####
+### (14) SEM: precip, floral sum, floral days 
 sem14<-psem(
   
   # effects of climate on sex ratios
@@ -1372,108 +1369,131 @@ plot(sem14)
 
 
 ### Get summaries for SEMs #####
+df1<-bind_rows(data.frame(summary(semFull, .progressBar = F)$AIC),
+               data.frame(summary(sem1, .progressBar = F)$AIC),
+               data.frame(summary(sem2, .progressBar = F)$AIC),
+               data.frame(summary(sem3, .progressBar = F)$AIC),
+               data.frame(summary(sem4, .progressBar = F)$AIC), 
+               data.frame(summary(sem5, .progressBar = F)$AIC),
+               data.frame(summary(sem6, .progressBar = F)$AIC),
+               data.frame(summary(sem7, .progressBar = F)$AIC),
+               data.frame(summary(sem8, .progressBar = F)$AIC),
+               data.frame(summary(sem9, .progressBar = F)$AIC),
+               data.frame(summary(sem10, .progressBar = F)$AIC),
+               data.frame(summary(sem11, .progressBar = F)$AIC),
+               data.frame(summary(sem12, .progressBar = F)$AIC),
+               data.frame(summary(sem13, .progressBar = F)$AIC),
+               data.frame(summary(sem14, .progressBar = F)$AIC))
 
-df<-bind_rows(data.frame(summary(semFull, .progressBar = F)$AIC),
-data.frame(summary(sem1, .progressBar = F)$AIC),
-data.frame(summary(sem2, .progressBar = F)$AIC),
-data.frame(summary(sem3, .progressBar = F)$AIC),
-data.frame(summary(sem4, .progressBar = F)$AIC), 
-data.frame(summary(sem5, .progressBar = F)$AIC),
-data.frame(summary(sem6, .progressBar = F)$AIC),
-data.frame(summary(sem7, .progressBar = F)$AIC),
-data.frame(summary(sem8, .progressBar = F)$AIC),
-data.frame(summary(sem9, .progressBar = F)$AIC),
-data.frame(summary(sem10, .progressBar = F)$AIC),
-data.frame(summary(sem11, .progressBar = F)$AIC),
-data.frame(summary(sem12, .progressBar = F)$AIC),
-data.frame(summary(sem13, .progressBar = F)$AIC),
-data.frame(summary(sem14, .progressBar = F)$AIC))
-df$model<-0:14
-#write.csv(df,"AIC_value_SEM.csv", row.names=FALSE)
-
-summary(semFull, .progressBar = F) # NA
-summary(sem1, .progressBar = F)  # 0
-summary(sem2, .progressBar = F)  # 0
-summary(sem3, .progressBar = F) # 0
-summary(sem4, .progressBar = F)  # 0
-summary(sem5, .progressBar = F) # 0
-summary(sem6, .progressBar = F) # 0
-summary(sem7, .progressBar = F) # 0
-summary(sem8, .progressBar = F) # 0
-summary(sem9, .progressBar = F) # 0
-summary(sem10, .progressBar = F) # 0 
-summary(sem11, .progressBar = F) #0
-summary(sem12, .progressBar = F) #0
-summary(sem13, .progressBar = F) # 0.339 - BEST MODEL
-summary(sem14, .progressBar = F) # 0
-
-
-
-
-
-
-
-
-
-
-
-##### SEMs: individual species #####
-
-beedatafocal<-read.csv("focalbeedata_envdata_RMBLsexratios_2023-03-24.csv")
-# subset to just include focal sites
-sitelist<-c("Almont","Almont Curve","Beaver","CDOT","Copper","Davids","Elko","Gothic","Hill","Little","Lypps","Mexican Cut","Rustlers","Seans","Tuttle","Willey")
-beedatafocal<-filter(beedatafocal, site %in% sitelist) 
-
-# filter down to individual species data
-#beedatafocal<-filter(beedatafocal,genus_species=="Panurginus cressoniellus")
-#beedatafocal<-filter(beedatafocal,genus_species=="Panurginus ineptus")
-beedatafocal<-filter(beedatafocal,genus_species=="Pseudopanurgus bakeri")
-#beedatafocal<-filter(beedatafocal,genus_species=="Pseudopanurgus didirupa")
-#beedatafocal<-filter(beedatafocal,genus_species=="Ceratina nanula")
-#beedatafocal<-filter(beedatafocal,genus_species=="Hylaeus annulatus")
-#beedatafocal<-filter(beedatafocal,genus_species=="Agapostemon texanus")
-#beedatafocal<-filter(beedatafocal,genus_species=="Dufourea harveyi")
-#beedatafocal<-filter(beedatafocal,genus_species=="Halictus rubicundus")
-#beedatafocal<-filter(beedatafocal,genus_species=="Halictus virgatellus")
-#beedatafocal<-filter(beedatafocal,genus_species=="Hoplitis fulgida")
-#beedatafocal<-filter(beedatafocal,genus_species=="Hoplitis robusta")
-#beedatafocal<-filter(beedatafocal,genus_species=="Osmia albolateralis")
-
-### (full) SEM: all prior year's climate and floral predictor variables #####
-semFull<-psem(
-  
-  # effects of climate on sex ratios
-  glmer(sex_binom ~ prev_yr_doy_bare_ground_z +
-          prev_yr_accum_summer_precip_cm_z +
-          prev_yr_floral_days_z +
-          prev_yr_total_flowers_z +
-          (1|site) ,
-        data = beedatafocal, family = binomial),
-  
-  # effects of climate on flowers
-  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
-       prev_yr_doy_bare_ground_z +
-       prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal),
-  
-  lm(prev_yr_total_flowers_z ~
-       prev_yr_doy_bare_ground_z +
-       prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal)
-  
+df2<-bind_rows(bind_cols(LLchisq(semFull),fisherC(dSep(semFull))),
+               bind_cols(LLchisq(sem1),fisherC(dSep(sem1))),
+               bind_cols(LLchisq(sem2),fisherC(dSep(sem2))),
+               bind_cols(LLchisq(sem3),fisherC(dSep(sem3))),
+               bind_cols(LLchisq(sem4),fisherC(dSep(sem4))),
+               bind_cols(LLchisq(sem5),fisherC(dSep(sem5))),
+               bind_cols(LLchisq(sem6),fisherC(dSep(sem6))),
+               bind_cols(LLchisq(sem7),fisherC(dSep(sem7))),
+               bind_cols(LLchisq(sem8),fisherC(dSep(sem8))),
+               bind_cols(LLchisq(sem9),fisherC(dSep(sem9))),
+               bind_cols(LLchisq(sem10),fisherC(dSep(sem10))),
+               bind_cols(LLchisq(sem11),fisherC(dSep(sem11))),
+               bind_cols(LLchisq(sem12),fisherC(dSep(sem12))),
+               bind_cols(LLchisq(sem13),fisherC(dSep(sem13))),
+               bind_cols(LLchisq(sem14),fisherC(dSep(sem14)))
 )
+names(df2)[c(2,3,5,6)]<-c("df_chisq","p_chisq","df_fisher","p_fisher")
+df2$model<-0:14
 
-summary(semFull, .progressBar = F)
+df3<-bind_cols(df2[,c(7,1:6)],df1)
 
+#write.csv(df3,"GoodnessOfFit_SEM_AllSpecies.csv", row.names=FALSE)
 
-# plotting the SEM! resources:
-# https://rdrr.io/cran/DiagrammeR/man/create_graph.html
-# also: https://rich-iannone.github.io/DiagrammeR/graphs.html
+coefs_df<-bind_rows(data.frame(coefs(semFull),model=0),
+                    data.frame(coefs(sem1),model=1),
+                    data.frame(coefs(sem2),model=2),
+                    data.frame(coefs(sem3),model=3),
+                    data.frame(coefs(sem4),model=4), 
+                    data.frame(coefs(sem5),model=5),
+                    data.frame(coefs(sem6),model=6),
+                    data.frame(coefs(sem7),model=7),
+                    data.frame(coefs(sem8),model=8),
+                    data.frame(coefs(sem9),model=9),
+                    data.frame(coefs(sem10),model=10),
+                    data.frame(coefs(sem11),model=11),
+                    data.frame(coefs(sem12),model=12),
+                    data.frame(coefs(sem13),model=13),
+                    data.frame(coefs(sem14),model=14))
+
+#write.csv(coefs_df,"coefficients_SEM_AllSpecies.csv", row.names=FALSE)
+
+summary(semFull, .progressBar = F) 
+summary(sem1, .progressBar = F)  
+summary(sem2, .progressBar = F)   
+summary(sem3, .progressBar = F) 
+summary(sem4, .progressBar = F)  
+summary(sem5, .progressBar = F) 
+summary(sem6, .progressBar = F)  
+summary(sem7, .progressBar = F) 
+summary(sem8, .progressBar = F) 
+summary(sem9, .progressBar = F) 
+summary(sem10, .progressBar = F) 
+summary(sem11, .progressBar = F)  
+summary(sem12, .progressBar = F) 
+summary(sem13, .progressBar = F) 
+summary(sem14, .progressBar = F) 
+
+### Perform model averaging #####
+
+# sem full, sem 13
+coef_list<-list(coef(summary(semFull[[1]]))[, 1], coef(summary(sem13[[1]]))[, 1])
+weightslist<-c(summary(semFull, .progressBar = F)$AIC$AICc,summary(sem13, .progressBar = F)$AIC$AICc)
+avgEst(coef_list)
+avgEst(coef_list,weights=weightslist)
+
+coef_list2<-list(coef(summary(semFull[[2]]))[, 1], coef(summary(sem13[[2]]))[, 1])
+weightslist<-c(summary(semFull, .progressBar = F)$AIC$AICc,summary(sem13, .progressBar = F)$AIC$AICc)
+avgEst(coef_list2)
+avgEst(coef_list2,weights=weightslist)
+
+coef_list3<-list(coef(summary(semFull[[3]]))[, 1], coef(summary(sem13[[3]]))[, 1])
+weightslist<-c(summary(semFull, .progressBar = F)$AIC$AICc,summary(sem13, .progressBar = F)$AIC$AICc)
+avgEst(coef_list3)
+avgEst(coef_list3,weights=weightslist)
+
+coefs(semFull)
+coefs(sem13)
+
+### plot the SEM #####
+est<-data.frame(avgEst(coef_list,weights=weightslist))
+est <- tibble::rownames_to_column(est, "Predictor")
+est<-est[-1,]
+est$Response<-"sex_binom"
+names(est)[2]<-"Estimate_MdlAvg"
+
+est2<-data.frame(avgEst(coef_list2,weights=weightslist))
+est2 <- tibble::rownames_to_column(est2, "Predictor")
+est2<-est2[-1,]
+est2$Response<-"prev_yr_floral_days_z"
+names(est2)[2]<-"Estimate_MdlAvg"
+
+est3<-data.frame(avgEst(coef_list3,weights=weightslist))
+est3 <- tibble::rownames_to_column(est3, "Predictor")
+est3<-est3[-1,]
+est3$Response<-"prev_yr_total_flowers_z"
+names(est3)[2]<-"Estimate_MdlAvg"
+
+est_all<-bind_rows(est,est2,est3)
+
 
 coef<-summary(semFull, .progressBar = F)$coef
 coef
 unique(coef$Response)
 unique(coef$Predictor)
+
+coef<-left_join(coef,est_all,by=c("Predictor","Response"))
+
+# remove variables not included in best model
+coef<-coef %>% drop_na(Estimate_MdlAvg)
 
 coef$to<-coef$Response
 coef$from<-coef$Predictor
@@ -1490,7 +1510,7 @@ coef$from[coef$from=="prev_yr_total_flowers_z"] <- 3
 coef$from[coef$from=="prev_yr_doy_bare_ground_z"] <- 4
 coef$from[coef$from=="prev_yr_accum_summer_precip_cm_z"] <- 5
 
-coef$style<-ifelse(coef$Estimate>0,"solid","dashed")
+coef$style<-ifelse(coef$Estimate_MdlAvg>0,"solid","dashed")
 coef$color<-ifelse(coef$P.Value>=0.05,"gray","black")
 
 ndf <-
@@ -1499,7 +1519,9 @@ ndf <-
     fontsize=6,
     fixedsize=TRUE,
     color="black",
-    fillcolor="lightgray",
+    fontcolor="black",
+    fillcolor="white",
+    fontname="Baskerville",
     penwidth=0.5,
     shape="rectangle",
     width=0.7,
@@ -1517,11 +1539,12 @@ edf <-
     from = coef$from,
     to = coef$to,
     rel = "leading_to",
-    label = round(coef$Estimate,digits=2),
-    penwidth = abs(coef$Estimate*2),
+    #label = round(coef$Estimate_MdlAvg,digits=2),
+    penwidth = abs(coef$Estimate_MdlAvg*2),
     fontsize=5.5,
-    fontcolor="brown3",
-    color=coef$color,
+    fontcolor="black",
+    #color=coef$color,
+    color="black",
     style=coef$style)
 
 graph <-
@@ -1551,8 +1574,50 @@ graph <-
 
 render_graph(graph)
 
+#graph %>% export_graph(file_name = "SEM_AllSpecies.pdf")
 
-### (1) SEM: snowmelt #####
+
+
+##### SEMs: individual species #####
+
+############## (1) Panurginus cressoniellus ################
+
+beedatafocal<-read.csv("focalbeedata_envdata_RMBLsexratios_2023-03-24.csv")
+# subset to just include focal sites
+sitelist<-c("Almont","Almont Curve","Beaver","CDOT","Copper","Davids","Elko","Gothic","Hill","Little","Lypps","Mexican Cut","Rustlers","Seans","Tuttle","Willey")
+beedatafocal<-filter(beedatafocal, site %in% sitelist) 
+
+beedatafocal<-filter(beedatafocal,genus_species=="Panurginus cressoniellus")
+
+### (full) SEM: all prior year's climate and floral predictor variables 
+semFull<-psem(
+  
+  # effects of climate on sex ratios
+  glmer(sex_binom ~ prev_yr_doy_bare_ground_z +
+          prev_yr_accum_summer_precip_cm_z +
+          prev_yr_floral_days_z +
+          prev_yr_total_flowers_z +
+          (1|site) ,
+        data = beedatafocal, family = binomial),
+  
+  # effects of climate on flowers
+  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal),
+  
+  lm(prev_yr_total_flowers_z ~
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal)
+  
+)
+
+summary(semFull, .progressBar = F)
+plot(semFull)
+
+
+### (1) SEM: snowmelt 
 sem1<-psem(
   
   # effects of climate on sex ratios
@@ -1577,7 +1642,7 @@ summary(sem1, .progressBar = F)
 plot(sem1)
 
 
-### (2) SEM: snowmelt, floral sum #####
+### (2) SEM: snowmelt, floral sum 
 sem2<-psem(
   
   # effects of climate on sex ratios
@@ -1602,7 +1667,7 @@ sem2<-psem(
 summary(sem2, .progressBar = F)
 plot(sem2)
 
-### (3) SEM: snowmelt, floral days #####
+### (3) SEM: snowmelt, floral days 
 sem3<-psem(
   
   # effects of climate on sex ratios
@@ -1627,7 +1692,7 @@ sem3<-psem(
 summary(sem3, .progressBar = F)
 plot(sem3)
 
-### (4) SEM: snowmelt, precip #####
+### (4) SEM: snowmelt, precip 
 sem4<-psem(
   
   # effects of climate on sex ratios
@@ -1652,7 +1717,7 @@ sem4<-psem(
 summary(sem4, .progressBar = F)
 plot(sem4)
 
-### (5) SEM: precip #####
+### (5) SEM: precip 
 sem5<-psem(
   
   # effects of climate on sex ratios
@@ -1677,7 +1742,7 @@ sem5<-psem(
 summary(sem5, .progressBar = F)
 plot(sem5)
 
-### (6) SEM: precip, floral sum #####
+### (6) SEM: precip, floral sum 
 sem6<-psem(
   
   # effects of climate on sex ratios
@@ -1703,7 +1768,7 @@ sem6<-psem(
 summary(sem6, .progressBar = F)
 plot(sem6)
 
-### (7) SEM: precip, floral days #####
+### (7) SEM: precip, floral days 
 sem7<-psem(
   
   # effects of climate on sex ratios
@@ -1730,7 +1795,7 @@ summary(sem7, .progressBar = F)
 plot(sem7)
 
 
-### (8) SEM: floral sum, floral days #####
+### (8) SEM: floral sum, floral days 
 sem8<-psem(
   
   # effects of climate on sex ratios
@@ -1757,7 +1822,7 @@ summary(sem8, .progressBar = F)
 plot(sem8)
 
 
-### (9) SEM: floral sum #####
+### (9) SEM: floral sum 
 sem9<-psem(
   
   # effects of climate on sex ratios
@@ -1782,7 +1847,7 @@ sem9<-psem(
 summary(sem9, .progressBar = F)
 plot(sem9)
 
-### (10) SEM: floral days #####
+### (10) SEM: floral days 
 sem10<-psem(
   
   # effects of climate on sex ratios
@@ -1812,7 +1877,7 @@ plot(sem10)
 
 
 
-### (11) SEM: snowmelt, precip, floral sum #####
+### (11) SEM: snowmelt, precip, floral sum 
 sem11<-psem(
   
   # effects of climate on sex ratios
@@ -1839,7 +1904,7 @@ summary(sem11, .progressBar = F)
 plot(sem11)
 
 
-### (12) SEM: snowmelt, precip, floral days #####
+### (12) SEM: snowmelt, precip, floral days 
 sem12<-psem(
   
   # effects of climate on sex ratios
@@ -1865,7 +1930,7 @@ sem12<-psem(
 summary(sem12, .progressBar = F)
 plot(sem12)
 
-### (13) SEM: snowmelt, floral sum, floral days #####
+### (13) SEM: snowmelt, floral sum, floral days 
 sem13<-psem(
   
   # effects of climate on sex ratios
@@ -1891,7 +1956,7 @@ sem13<-psem(
 summary(sem13, .progressBar = F)
 plot(sem13)
 
-### (14) SEM: precip, floral sum, floral days #####
+### (14) SEM: precip, floral sum, floral days 
 sem14<-psem(
   
   # effects of climate on sex ratios
@@ -1961,18 +2026,6 @@ df2$model<-0:14
 df3<-bind_cols(df2[,c(7,1:6)],df1)
   
 #write.csv(df3,"GoodnessOfFit_SEM_Panurginus_cressoniellus.csv", row.names=FALSE)
-#write.csv(df3,"GoodnessOfFit_SEM_Panurginus_ineptus.csv", row.names=FALSE)
-#write.csv(df3,"GoodnessOfFit_SEM_Pseudopanurgus_bakeri.csv", row.names=FALSE)
-#write.csv(df3,"GoodnessOfFit_SEM_Pseudopanurgus_didirupa.csv", row.names=FALSE)
-#write.csv(df3,"GoodnessOfFit_SEM_Ceratina_nanula.csv", row.names=FALSE)
-#write.csv(df3,"GoodnessOfFit_SEM_Hylaeus_annulatus.csv", row.names=FALSE)
-#write.csv(df3,"GoodnessOfFit_SEM_Agapostemon_texanus.csv", row.names=FALSE)
-#write.csv(df3,"GoodnessOfFit_SEM_Dufourea_harveyi.csv", row.names=FALSE)
-#write.csv(df3,"GoodnessOfFit_SEM_Halictus_rubicundus.csv", row.names=FALSE)
-#write.csv(df3,"GoodnessOfFit_SEM_Halictus_virgatellus.csv", row.names=FALSE)
-#write.csv(df3,"GoodnessOfFit_SEM_Hoplitis_fulgida.csv", row.names=FALSE)
-#write.csv(df3,"GoodnessOfFit_SEM_Hoplitis_robusta.csv", row.names=FALSE)
-#write.csv(df3,"GoodnessOfFit_SEM_Osmia_albolateralis.csv", row.names=FALSE)
 
 coefs_df<-bind_rows(data.frame(coefs(semFull),model=0),
            data.frame(coefs(sem1),model=1),
@@ -1991,18 +2044,6 @@ coefs_df<-bind_rows(data.frame(coefs(semFull),model=0),
            data.frame(coefs(sem14),model=14))
 
 #write.csv(coefs_df,"coefficients_SEM_Panurginus_cressoniellus.csv", row.names=FALSE)
-#write.csv(coefs_df,"coefficients_SEM_Panurginus_ineptus.csv", row.names=FALSE)
-#write.csv(coefs_df,"coefficients_SEM_Pseudopanurgus_bakeri.csv", row.names=FALSE)
-#write.csv(coefs_df,"coefficients_SEM_Pseudopanurgus_didirupa.csv", row.names=FALSE)
-#write.csv(coefs_df,"coefficients_SEM_Ceratina_nanula.csv", row.names=FALSE)
-#write.csv(coefs_df,"coefficients_SEM_Hylaeus_annulatus.csv", row.names=FALSE)
-#write.csv(coefs_df,"coefficients_SEM_Agapostemon_texanus.csv", row.names=FALSE)
-#write.csv(coefs_df,"coefficients_SEM_Dufourea_harveyi.csv", row.names=FALSE)
-#write.csv(coefs_df,"coefficients_SEM_Halictus_rubicundus.csv", row.names=FALSE)
-#write.csv(coefs_df,"coefficients_SEM_Halictus_virgatellus.csv", row.names=FALSE)
-#write.csv(coefs_df,"coefficients_SEM_Hoplitis_fulgida.csv", row.names=FALSE)
-#write.csv(coefs_df,"coefficients_SEM_Hoplitis_robusta.csv", row.names=FALSE)
-#write.csv(coefs_df,"coefficients_SEM_Osmia_albolateralis.csv", row.names=FALSE)
 
 
 summary(semFull, .progressBar = F) 
@@ -2022,7 +2063,1149 @@ summary(sem13, .progressBar = F)
 summary(sem14, .progressBar = F) 
 
 
-# perform model averaging, if necessary
+# plot the SEM #####
+coef<-summary(semFull, .progressBar = F)$coef
+coef
+unique(coef$Response)
+unique(coef$Predictor)
+
+coef$to<-coef$Response
+coef$from<-coef$Predictor
+
+coef$to[coef$to=="sex_binom"] <- 1
+coef$to[coef$to=="prev_yr_floral_days_z"] <- 2
+coef$to[coef$to=="prev_yr_total_flowers_z"] <- 3
+coef$to[coef$to=="prev_yr_doy_bare_ground_z"] <- 4
+coef$to[coef$to=="prev_yr_accum_summer_precip_cm_z"] <- 5
+
+coef$from[coef$from=="sex_binom"] <- 1
+coef$from[coef$from=="prev_yr_floral_days_z"] <- 2
+coef$from[coef$from=="prev_yr_total_flowers_z"] <- 3
+coef$from[coef$from=="prev_yr_doy_bare_ground_z"] <- 4
+coef$from[coef$from=="prev_yr_accum_summer_precip_cm_z"] <- 5
+
+coef$style<-ifelse(coef$Estimate>0,"solid","dashed")
+coef$color<-ifelse(coef$P.Value>=0.05,"gray","black")
+
+ndf <-
+  create_node_df(
+    n = 5,
+    fontsize=6,
+    fixedsize=TRUE,
+    color="black",
+    fontcolor="black",
+    fillcolor="white",
+    fontname="Baskerville",
+    penwidth=0.5,
+    shape="rectangle",
+    width=0.7,
+    height=0.3,
+    label = c("Female/male \nratio","Floral days \n(prior year)", "Floral sum \n(prior year)","Snowmelt date \n(prior year)","Summer precip. \n(prior year)"))
+
+graph <-
+  create_graph(
+    nodes_df = ndf)
+
+render_graph(graph)
+
+edf <-
+  create_edge_df(
+    from = coef$from,
+    to = coef$to,
+    rel = "leading_to",
+    #label = round(coef$Estimate,digits=2),
+    penwidth = abs(coef$Estimate*2),
+    fontsize=5.5,
+    fontcolor="brown3",
+    #color=coef$color,
+    color="black",
+    style=coef$style)
+
+graph <-
+  create_graph(
+    nodes_df = ndf,
+    edges_df = edf)
+
+render_graph(graph)
+
+graph <-
+  graph %>%
+  set_node_position(
+    node = 1, # sex ratio
+    x = 3, y = 1.5) %>%
+  set_node_position(
+    node = 2, # floral days
+    x = 2, y = 1) %>%
+  set_node_position(
+    node = 3, # floral sum
+    x = 2, y = 2) %>%
+  set_node_position(
+    node = 4, # snowmelt date
+    x = 1, y = 2) %>%
+  set_node_position(
+    node = 5, # summer precip
+    x = 1, y = 1)
+
+render_graph(graph)
+
+#graph %>% export_graph(file_name = "SEM_Panurginus_cressoniellus.pdf")
+
+
+############## (2) Panurginus ineptus ################
+
+beedatafocal<-read.csv("focalbeedata_envdata_RMBLsexratios_2023-03-24.csv")
+# subset to just include focal sites
+sitelist<-c("Almont","Almont Curve","Beaver","CDOT","Copper","Davids","Elko","Gothic","Hill","Little","Lypps","Mexican Cut","Rustlers","Seans","Tuttle","Willey")
+beedatafocal<-filter(beedatafocal, site %in% sitelist) 
+
+beedatafocal<-filter(beedatafocal,genus_species=="Panurginus ineptus")
+
+### (full) SEM: all prior year's climate and floral predictor variables 
+semFull<-psem(
+  
+  # effects of climate on sex ratios
+  glmer(sex_binom ~ prev_yr_doy_bare_ground_z +
+          prev_yr_accum_summer_precip_cm_z +
+          prev_yr_floral_days_z +
+          prev_yr_total_flowers_z +
+          (1|site) ,
+        data = beedatafocal, family = binomial),
+  
+  # effects of climate on flowers
+  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal),
+  
+  lm(prev_yr_total_flowers_z ~
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal)
+  
+)
+
+summary(semFull, .progressBar = F)
+plot(semFull)
+
+
+### (1) SEM: snowmelt 
+sem1<-psem(
+  
+  # effects of climate on sex ratios
+  glmer(sex_binom ~ prev_yr_doy_bare_ground_z +
+          (1|site) ,
+        data = beedatafocal, family = binomial),
+  
+  # effects of climate on flowers
+  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal),
+  
+  lm(prev_yr_total_flowers_z ~
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal)
+  
+)
+
+summary(sem1, .progressBar = F)
+plot(sem1)
+
+
+### (2) SEM: snowmelt, floral sum 
+sem2<-psem(
+  
+  # effects of climate on sex ratios
+  glmer(sex_binom ~ prev_yr_doy_bare_ground_z +
+          prev_yr_total_flowers_z +
+          (1|site) ,
+        data = beedatafocal, family = binomial),
+  
+  # effects of climate on flowers
+  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal),
+  
+  lm(prev_yr_total_flowers_z ~
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal)
+  
+)
+
+summary(sem2, .progressBar = F)
+plot(sem2)
+
+### (3) SEM: snowmelt, floral days 
+sem3<-psem(
+  
+  # effects of climate on sex ratios
+  glmer(sex_binom ~ prev_yr_doy_bare_ground_z +
+          prev_yr_floral_days_z +
+          (1|site) ,
+        data = beedatafocal, family = binomial),
+  
+  # effects of climate on flowers
+  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal),
+  
+  lm(prev_yr_total_flowers_z ~
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal)
+  
+)
+
+summary(sem3, .progressBar = F)
+plot(sem3)
+
+### (4) SEM: snowmelt, precip 
+sem4<-psem(
+  
+  # effects of climate on sex ratios
+  glmer(sex_binom ~ prev_yr_doy_bare_ground_z +
+          prev_yr_accum_summer_precip_cm_z +
+          (1|site) ,
+        data = beedatafocal, family = binomial),
+  
+  # effects of climate on flowers
+  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal),
+  
+  lm(prev_yr_total_flowers_z ~
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal)
+  
+)
+
+summary(sem4, .progressBar = F)
+plot(sem4)
+
+### (5) SEM: precip 
+sem5<-psem(
+  
+  # effects of climate on sex ratios
+  glmer(sex_binom ~ 
+          prev_yr_accum_summer_precip_cm_z +
+          (1|site) ,
+        data = beedatafocal, family = binomial),
+  
+  # effects of climate on flowers
+  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal),
+  
+  lm(prev_yr_total_flowers_z ~
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal)
+  
+)
+
+summary(sem5, .progressBar = F)
+plot(sem5)
+
+### (6) SEM: precip, floral sum 
+sem6<-psem(
+  
+  # effects of climate on sex ratios
+  glmer(sex_binom ~ 
+          prev_yr_accum_summer_precip_cm_z +
+          prev_yr_total_flowers_z +
+          (1|site) ,
+        data = beedatafocal, family = binomial),
+  
+  # effects of climate on flowers
+  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal),
+  
+  lm(prev_yr_total_flowers_z ~
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal)
+  
+)
+
+summary(sem6, .progressBar = F)
+plot(sem6)
+
+### (7) SEM: precip, floral days 
+sem7<-psem(
+  
+  # effects of climate on sex ratios
+  glmer(sex_binom ~ 
+          prev_yr_accum_summer_precip_cm_z +
+          prev_yr_floral_days_z +
+          (1|site) ,
+        data = beedatafocal, family = binomial),
+  
+  # effects of climate on flowers
+  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal),
+  
+  lm(prev_yr_total_flowers_z ~
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal)
+  
+)
+
+summary(sem7, .progressBar = F)
+plot(sem7)
+
+
+### (8) SEM: floral sum, floral days 
+sem8<-psem(
+  
+  # effects of climate on sex ratios
+  glmer(sex_binom ~
+          prev_yr_floral_days_z +
+          prev_yr_total_flowers_z +
+          (1|site) ,
+        data = beedatafocal, family = binomial),
+  
+  # effects of climate on flowers
+  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal),
+  
+  lm(prev_yr_total_flowers_z ~
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal)
+  
+)
+
+summary(sem8, .progressBar = F)
+plot(sem8)
+
+
+### (9) SEM: floral sum 
+sem9<-psem(
+  
+  # effects of climate on sex ratios
+  glmer(sex_binom ~
+          prev_yr_total_flowers_z +
+          (1|site) ,
+        data = beedatafocal, family = binomial),
+  
+  # effects of climate on flowers
+  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal),
+  
+  lm(prev_yr_total_flowers_z ~
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal)
+  
+)
+
+summary(sem9, .progressBar = F)
+plot(sem9)
+
+### (10) SEM: floral days 
+sem10<-psem(
+  
+  # effects of climate on sex ratios
+  glmer(sex_binom ~
+          prev_yr_floral_days_z +
+          (1|site) ,
+        data = beedatafocal, family = binomial),
+  
+  # effects of climate on flowers
+  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal),
+  
+  lm(prev_yr_total_flowers_z ~
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal)
+  
+)
+
+summary(sem10, .progressBar = F)
+plot(sem10)
+
+
+
+
+
+
+### (11) SEM: snowmelt, precip, floral sum 
+sem11<-psem(
+  
+  # effects of climate on sex ratios
+  glmer(sex_binom ~ prev_yr_doy_bare_ground_z +
+          prev_yr_accum_summer_precip_cm_z +
+          prev_yr_total_flowers_z +
+          (1|site) ,
+        data = beedatafocal, family = binomial),
+  
+  # effects of climate on flowers
+  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal),
+  
+  lm(prev_yr_total_flowers_z ~
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal)
+  
+)
+
+summary(sem11, .progressBar = F)
+plot(sem11)
+
+
+### (12) SEM: snowmelt, precip, floral days 
+sem12<-psem(
+  
+  # effects of climate on sex ratios
+  glmer(sex_binom ~ prev_yr_doy_bare_ground_z +
+          prev_yr_accum_summer_precip_cm_z +
+          prev_yr_floral_days_z +
+          (1|site) ,
+        data = beedatafocal, family = binomial),
+  
+  # effects of climate on flowers
+  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal),
+  
+  lm(prev_yr_total_flowers_z ~
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal)
+  
+)
+
+summary(sem12, .progressBar = F)
+plot(sem12)
+
+### (13) SEM: snowmelt, floral sum, floral days 
+sem13<-psem(
+  
+  # effects of climate on sex ratios
+  glmer(sex_binom ~ prev_yr_doy_bare_ground_z +
+          prev_yr_floral_days_z +
+          prev_yr_total_flowers_z +
+          (1|site) ,
+        data = beedatafocal, family = binomial),
+  
+  # effects of climate on flowers
+  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal),
+  
+  lm(prev_yr_total_flowers_z ~
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal)
+  
+)
+
+summary(sem13, .progressBar = F)
+plot(sem13)
+
+### (14) SEM: precip, floral sum, floral days 
+sem14<-psem(
+  
+  # effects of climate on sex ratios
+  glmer(sex_binom ~ 
+          prev_yr_accum_summer_precip_cm_z +
+          prev_yr_floral_days_z +
+          prev_yr_total_flowers_z +
+          (1|site) ,
+        data = beedatafocal, family = binomial),
+  
+  # effects of climate on flowers
+  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal),
+  
+  lm(prev_yr_total_flowers_z ~
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal)
+  
+)
+
+summary(sem14, .progressBar = F)
+plot(sem14)
+
+
+
+
+
+### Get summaries for SEMs #####
+
+df1<-bind_rows(data.frame(summary(semFull, .progressBar = F)$AIC),
+               data.frame(summary(sem1, .progressBar = F)$AIC),
+               data.frame(summary(sem2, .progressBar = F)$AIC),
+               data.frame(summary(sem3, .progressBar = F)$AIC),
+               data.frame(summary(sem4, .progressBar = F)$AIC), 
+               data.frame(summary(sem5, .progressBar = F)$AIC),
+               data.frame(summary(sem6, .progressBar = F)$AIC),
+               data.frame(summary(sem7, .progressBar = F)$AIC),
+               data.frame(summary(sem8, .progressBar = F)$AIC),
+               data.frame(summary(sem9, .progressBar = F)$AIC),
+               data.frame(summary(sem10, .progressBar = F)$AIC),
+               data.frame(summary(sem11, .progressBar = F)$AIC),
+               data.frame(summary(sem12, .progressBar = F)$AIC),
+               data.frame(summary(sem13, .progressBar = F)$AIC),
+               data.frame(summary(sem14, .progressBar = F)$AIC))
+
+df2<-bind_rows(bind_cols(LLchisq(semFull),fisherC(dSep(semFull))),
+               bind_cols(LLchisq(sem1),fisherC(dSep(sem1))),
+               bind_cols(LLchisq(sem2),fisherC(dSep(sem2))),
+               bind_cols(LLchisq(sem3),fisherC(dSep(sem3))),
+               bind_cols(LLchisq(sem4),fisherC(dSep(sem4))),
+               bind_cols(LLchisq(sem5),fisherC(dSep(sem5))),
+               bind_cols(LLchisq(sem6),fisherC(dSep(sem6))),
+               bind_cols(LLchisq(sem7),fisherC(dSep(sem7))),
+               bind_cols(LLchisq(sem8),fisherC(dSep(sem8))),
+               bind_cols(LLchisq(sem9),fisherC(dSep(sem9))),
+               bind_cols(LLchisq(sem10),fisherC(dSep(sem10))),
+               bind_cols(LLchisq(sem11),fisherC(dSep(sem11))),
+               bind_cols(LLchisq(sem12),fisherC(dSep(sem12))),
+               bind_cols(LLchisq(sem13),fisherC(dSep(sem13))),
+               bind_cols(LLchisq(sem14),fisherC(dSep(sem14)))
+)
+names(df2)[c(2,3,5,6)]<-c("df_chisq","p_chisq","df_fisher","p_fisher")
+df2$model<-0:14
+
+df3<-bind_cols(df2[,c(7,1:6)],df1)
+
+#write.csv(df3,"GoodnessOfFit_SEM_Panurginus_ineptus.csv", row.names=FALSE)
+
+coefs_df<-bind_rows(data.frame(coefs(semFull),model=0),
+                    data.frame(coefs(sem1),model=1),
+                    data.frame(coefs(sem2),model=2),
+                    data.frame(coefs(sem3),model=3),
+                    data.frame(coefs(sem4),model=4), 
+                    data.frame(coefs(sem5),model=5),
+                    data.frame(coefs(sem6),model=6),
+                    data.frame(coefs(sem7),model=7),
+                    data.frame(coefs(sem8),model=8),
+                    data.frame(coefs(sem9),model=9),
+                    data.frame(coefs(sem10),model=10),
+                    data.frame(coefs(sem11),model=11),
+                    data.frame(coefs(sem12),model=12),
+                    data.frame(coefs(sem13),model=13),
+                    data.frame(coefs(sem14),model=14))
+
+#write.csv(coefs_df,"coefficients_SEM_Panurginus_ineptus.csv", row.names=FALSE)
+
+
+summary(semFull, .progressBar = F) 
+summary(sem1, .progressBar = F)  
+summary(sem2, .progressBar = F)   
+summary(sem3, .progressBar = F) 
+summary(sem4, .progressBar = F)  
+summary(sem5, .progressBar = F) 
+summary(sem6, .progressBar = F)  
+summary(sem7, .progressBar = F) 
+summary(sem8, .progressBar = F) 
+summary(sem9, .progressBar = F) 
+summary(sem10, .progressBar = F) 
+summary(sem11, .progressBar = F)  
+summary(sem12, .progressBar = F) 
+summary(sem13, .progressBar = F) 
+summary(sem14, .progressBar = F) 
+
+
+# plot the SEM #####
+coef<-summary(semFull, .progressBar = F)$coef
+coef
+unique(coef$Response)
+unique(coef$Predictor)
+
+coef$to<-coef$Response
+coef$from<-coef$Predictor
+
+coef$to[coef$to=="sex_binom"] <- 1
+coef$to[coef$to=="prev_yr_floral_days_z"] <- 2
+coef$to[coef$to=="prev_yr_total_flowers_z"] <- 3
+coef$to[coef$to=="prev_yr_doy_bare_ground_z"] <- 4
+coef$to[coef$to=="prev_yr_accum_summer_precip_cm_z"] <- 5
+
+coef$from[coef$from=="sex_binom"] <- 1
+coef$from[coef$from=="prev_yr_floral_days_z"] <- 2
+coef$from[coef$from=="prev_yr_total_flowers_z"] <- 3
+coef$from[coef$from=="prev_yr_doy_bare_ground_z"] <- 4
+coef$from[coef$from=="prev_yr_accum_summer_precip_cm_z"] <- 5
+
+coef$style<-ifelse(coef$Estimate>0,"solid","dashed")
+coef$color<-ifelse(coef$P.Value>=0.05,"gray","black")
+
+ndf <-
+  create_node_df(
+    n = 5,
+    fontsize=6,
+    fixedsize=TRUE,
+    color="black",
+        fontcolor="black",     fillcolor="white",     fontname="Baskerville",
+    penwidth=0.5,
+    shape="rectangle",
+    width=0.7,
+    height=0.3,
+    label = c("Female/male \nratio","Floral days \n(prior year)", "Floral sum \n(prior year)","Snowmelt date \n(prior year)","Summer precip. \n(prior year)"))
+
+graph <-
+  create_graph(
+    nodes_df = ndf)
+
+render_graph(graph)
+
+edf <-
+  create_edge_df(
+    from = coef$from,
+    to = coef$to,
+    rel = "leading_to",
+    #label = round(coef$Estimate,digits=2),
+    penwidth = abs(coef$Estimate*2),
+    fontsize=5.5,
+    fontcolor="brown3",
+    #color=coef$color,
+    color="black",
+    style=coef$style)
+
+graph <-
+  create_graph(
+    nodes_df = ndf,
+    edges_df = edf)
+
+render_graph(graph)
+
+graph <-
+  graph %>%
+  set_node_position(
+    node = 1, # sex ratio
+    x = 3, y = 1.5) %>%
+  set_node_position(
+    node = 2, # floral days
+    x = 2, y = 1) %>%
+  set_node_position(
+    node = 3, # floral sum
+    x = 2, y = 2) %>%
+  set_node_position(
+    node = 4, # snowmelt date
+    x = 1, y = 2) %>%
+  set_node_position(
+    node = 5, # summer precip
+    x = 1, y = 1)
+
+render_graph(graph)
+
+#graph %>% export_graph(file_name = "SEM_Panurginus_ineptus.pdf")
+
+
+############## (3) Pseudopanurgus bakeri ################
+
+beedatafocal<-read.csv("focalbeedata_envdata_RMBLsexratios_2023-03-24.csv")
+# subset to just include focal sites
+sitelist<-c("Almont","Almont Curve","Beaver","CDOT","Copper","Davids","Elko","Gothic","Hill","Little","Lypps","Mexican Cut","Rustlers","Seans","Tuttle","Willey")
+beedatafocal<-filter(beedatafocal, site %in% sitelist) 
+
+beedatafocal<-filter(beedatafocal,genus_species=="Pseudopanurgus bakeri")
+
+### (full) SEM: all prior year's climate and floral predictor variables 
+semFull<-psem(
+  
+  # effects of climate on sex ratios
+  glmer(sex_binom ~ prev_yr_doy_bare_ground_z +
+          prev_yr_accum_summer_precip_cm_z +
+          prev_yr_floral_days_z +
+          prev_yr_total_flowers_z +
+          (1|site) ,
+        data = beedatafocal, family = binomial),
+  
+  # effects of climate on flowers
+  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal),
+  
+  lm(prev_yr_total_flowers_z ~
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal)
+  
+)
+
+summary(semFull, .progressBar = F)
+plot(semFull)
+
+
+### (1) SEM: snowmelt 
+sem1<-psem(
+  
+  # effects of climate on sex ratios
+  glmer(sex_binom ~ prev_yr_doy_bare_ground_z +
+          (1|site) ,
+        data = beedatafocal, family = binomial),
+  
+  # effects of climate on flowers
+  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal),
+  
+  lm(prev_yr_total_flowers_z ~
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal)
+  
+)
+
+summary(sem1, .progressBar = F)
+plot(sem1)
+
+
+### (2) SEM: snowmelt, floral sum 
+sem2<-psem(
+  
+  # effects of climate on sex ratios
+  glmer(sex_binom ~ prev_yr_doy_bare_ground_z +
+          prev_yr_total_flowers_z +
+          (1|site) ,
+        data = beedatafocal, family = binomial),
+  
+  # effects of climate on flowers
+  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal),
+  
+  lm(prev_yr_total_flowers_z ~
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal)
+  
+)
+
+summary(sem2, .progressBar = F)
+plot(sem2)
+
+### (3) SEM: snowmelt, floral days 
+sem3<-psem(
+  
+  # effects of climate on sex ratios
+  glmer(sex_binom ~ prev_yr_doy_bare_ground_z +
+          prev_yr_floral_days_z +
+          (1|site) ,
+        data = beedatafocal, family = binomial),
+  
+  # effects of climate on flowers
+  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal),
+  
+  lm(prev_yr_total_flowers_z ~
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal)
+  
+)
+
+summary(sem3, .progressBar = F)
+plot(sem3)
+
+### (4) SEM: snowmelt, precip 
+sem4<-psem(
+  
+  # effects of climate on sex ratios
+  glmer(sex_binom ~ prev_yr_doy_bare_ground_z +
+          prev_yr_accum_summer_precip_cm_z +
+          (1|site) ,
+        data = beedatafocal, family = binomial),
+  
+  # effects of climate on flowers
+  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal),
+  
+  lm(prev_yr_total_flowers_z ~
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal)
+  
+)
+
+summary(sem4, .progressBar = F)
+plot(sem4)
+
+### (5) SEM: precip 
+sem5<-psem(
+  
+  # effects of climate on sex ratios
+  glmer(sex_binom ~ 
+          prev_yr_accum_summer_precip_cm_z +
+          (1|site) ,
+        data = beedatafocal, family = binomial),
+  
+  # effects of climate on flowers
+  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal),
+  
+  lm(prev_yr_total_flowers_z ~
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal)
+  
+)
+
+summary(sem5, .progressBar = F)
+plot(sem5)
+
+### (6) SEM: precip, floral sum 
+sem6<-psem(
+  
+  # effects of climate on sex ratios
+  glmer(sex_binom ~ 
+          prev_yr_accum_summer_precip_cm_z +
+          prev_yr_total_flowers_z +
+          (1|site) ,
+        data = beedatafocal, family = binomial),
+  
+  # effects of climate on flowers
+  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal),
+  
+  lm(prev_yr_total_flowers_z ~
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal)
+  
+)
+
+summary(sem6, .progressBar = F)
+plot(sem6)
+
+### (7) SEM: precip, floral days 
+sem7<-psem(
+  
+  # effects of climate on sex ratios
+  glmer(sex_binom ~ 
+          prev_yr_accum_summer_precip_cm_z +
+          prev_yr_floral_days_z +
+          (1|site) ,
+        data = beedatafocal, family = binomial),
+  
+  # effects of climate on flowers
+  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal),
+  
+  lm(prev_yr_total_flowers_z ~
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal)
+  
+)
+
+summary(sem7, .progressBar = F)
+plot(sem7)
+
+
+### (8) SEM: floral sum, floral days 
+sem8<-psem(
+  
+  # effects of climate on sex ratios
+  glmer(sex_binom ~
+          prev_yr_floral_days_z +
+          prev_yr_total_flowers_z +
+          (1|site) ,
+        data = beedatafocal, family = binomial),
+  
+  # effects of climate on flowers
+  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal),
+  
+  lm(prev_yr_total_flowers_z ~
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal)
+  
+)
+
+summary(sem8, .progressBar = F)
+plot(sem8)
+
+
+### (9) SEM: floral sum 
+sem9<-psem(
+  
+  # effects of climate on sex ratios
+  glmer(sex_binom ~
+          prev_yr_total_flowers_z +
+          (1|site) ,
+        data = beedatafocal, family = binomial),
+  
+  # effects of climate on flowers
+  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal),
+  
+  lm(prev_yr_total_flowers_z ~
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal)
+  
+)
+
+summary(sem9, .progressBar = F)
+plot(sem9)
+
+### (10) SEM: floral days 
+sem10<-psem(
+  
+  # effects of climate on sex ratios
+  glmer(sex_binom ~
+          prev_yr_floral_days_z +
+          (1|site) ,
+        data = beedatafocal, family = binomial),
+  
+  # effects of climate on flowers
+  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal),
+  
+  lm(prev_yr_total_flowers_z ~
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal)
+  
+)
+
+summary(sem10, .progressBar = F)
+plot(sem10)
+
+
+
+
+
+
+### (11) SEM: snowmelt, precip, floral sum 
+sem11<-psem(
+  
+  # effects of climate on sex ratios
+  glmer(sex_binom ~ prev_yr_doy_bare_ground_z +
+          prev_yr_accum_summer_precip_cm_z +
+          prev_yr_total_flowers_z +
+          (1|site) ,
+        data = beedatafocal, family = binomial),
+  
+  # effects of climate on flowers
+  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal),
+  
+  lm(prev_yr_total_flowers_z ~
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal)
+  
+)
+
+summary(sem11, .progressBar = F)
+plot(sem11)
+
+
+### (12) SEM: snowmelt, precip, floral days 
+sem12<-psem(
+  
+  # effects of climate on sex ratios
+  glmer(sex_binom ~ prev_yr_doy_bare_ground_z +
+          prev_yr_accum_summer_precip_cm_z +
+          prev_yr_floral_days_z +
+          (1|site) ,
+        data = beedatafocal, family = binomial),
+  
+  # effects of climate on flowers
+  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal),
+  
+  lm(prev_yr_total_flowers_z ~
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal)
+  
+)
+
+summary(sem12, .progressBar = F)
+plot(sem12)
+
+### (13) SEM: snowmelt, floral sum, floral days 
+sem13<-psem(
+  
+  # effects of climate on sex ratios
+  glmer(sex_binom ~ prev_yr_doy_bare_ground_z +
+          prev_yr_floral_days_z +
+          prev_yr_total_flowers_z +
+          (1|site) ,
+        data = beedatafocal, family = binomial),
+  
+  # effects of climate on flowers
+  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal),
+  
+  lm(prev_yr_total_flowers_z ~
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal)
+  
+)
+
+summary(sem13, .progressBar = F)
+plot(sem13)
+
+### (14) SEM: precip, floral sum, floral days 
+sem14<-psem(
+  
+  # effects of climate on sex ratios
+  glmer(sex_binom ~ 
+          prev_yr_accum_summer_precip_cm_z +
+          prev_yr_floral_days_z +
+          prev_yr_total_flowers_z +
+          (1|site) ,
+        data = beedatafocal, family = binomial),
+  
+  # effects of climate on flowers
+  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal),
+  
+  lm(prev_yr_total_flowers_z ~
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal)
+  
+)
+
+summary(sem14, .progressBar = F)
+plot(sem14)
+
+
+
+
+
+### Get summaries for SEMs #####
+
+df1<-bind_rows(data.frame(summary(semFull, .progressBar = F)$AIC),
+               data.frame(summary(sem1, .progressBar = F)$AIC),
+               data.frame(summary(sem2, .progressBar = F)$AIC),
+               data.frame(summary(sem3, .progressBar = F)$AIC),
+               data.frame(summary(sem4, .progressBar = F)$AIC), 
+               data.frame(summary(sem5, .progressBar = F)$AIC),
+               data.frame(summary(sem6, .progressBar = F)$AIC),
+               data.frame(summary(sem7, .progressBar = F)$AIC),
+               data.frame(summary(sem8, .progressBar = F)$AIC),
+               data.frame(summary(sem9, .progressBar = F)$AIC),
+               data.frame(summary(sem10, .progressBar = F)$AIC),
+               data.frame(summary(sem11, .progressBar = F)$AIC),
+               data.frame(summary(sem12, .progressBar = F)$AIC),
+               data.frame(summary(sem13, .progressBar = F)$AIC),
+               data.frame(summary(sem14, .progressBar = F)$AIC))
+
+df2<-bind_rows(bind_cols(LLchisq(semFull),fisherC(dSep(semFull))),
+               bind_cols(LLchisq(sem1),fisherC(dSep(sem1))),
+               bind_cols(LLchisq(sem2),fisherC(dSep(sem2))),
+               bind_cols(LLchisq(sem3),fisherC(dSep(sem3))),
+               bind_cols(LLchisq(sem4),fisherC(dSep(sem4))),
+               bind_cols(LLchisq(sem5),fisherC(dSep(sem5))),
+               bind_cols(LLchisq(sem6),fisherC(dSep(sem6))),
+               bind_cols(LLchisq(sem7),fisherC(dSep(sem7))),
+               bind_cols(LLchisq(sem8),fisherC(dSep(sem8))),
+               bind_cols(LLchisq(sem9),fisherC(dSep(sem9))),
+               bind_cols(LLchisq(sem10),fisherC(dSep(sem10))),
+               bind_cols(LLchisq(sem11),fisherC(dSep(sem11))),
+               bind_cols(LLchisq(sem12),fisherC(dSep(sem12))),
+               bind_cols(LLchisq(sem13),fisherC(dSep(sem13))),
+               bind_cols(LLchisq(sem14),fisherC(dSep(sem14)))
+)
+names(df2)[c(2,3,5,6)]<-c("df_chisq","p_chisq","df_fisher","p_fisher")
+df2$model<-0:14
+
+df3<-bind_cols(df2[,c(7,1:6)],df1)
+
+#write.csv(df3,"GoodnessOfFit_SEM_Pseudopanurgus_bakeri.csv", row.names=FALSE)
+
+coefs_df<-bind_rows(data.frame(coefs(semFull),model=0),
+                    data.frame(coefs(sem1),model=1),
+                    data.frame(coefs(sem2),model=2),
+                    data.frame(coefs(sem3),model=3),
+                    data.frame(coefs(sem4),model=4), 
+                    data.frame(coefs(sem5),model=5),
+                    data.frame(coefs(sem6),model=6),
+                    data.frame(coefs(sem7),model=7),
+                    data.frame(coefs(sem8),model=8),
+                    data.frame(coefs(sem9),model=9),
+                    data.frame(coefs(sem10),model=10),
+                    data.frame(coefs(sem11),model=11),
+                    data.frame(coefs(sem12),model=12),
+                    data.frame(coefs(sem13),model=13),
+                    data.frame(coefs(sem14),model=14))
+
+#write.csv(coefs_df,"coefficients_SEM_Pseudopanurgus_bakeri.csv", row.names=FALSE)
+
+
+summary(semFull, .progressBar = F) 
+summary(sem1, .progressBar = F)  
+summary(sem2, .progressBar = F)   
+summary(sem3, .progressBar = F) 
+summary(sem4, .progressBar = F)  
+summary(sem5, .progressBar = F) 
+summary(sem6, .progressBar = F)  
+summary(sem7, .progressBar = F) 
+summary(sem8, .progressBar = F) 
+summary(sem9, .progressBar = F) 
+summary(sem10, .progressBar = F) 
+summary(sem11, .progressBar = F)  
+summary(sem12, .progressBar = F) 
+summary(sem13, .progressBar = F) 
+summary(sem14, .progressBar = F) 
+
+
+### Perform model averaging #####
 
 # Pseudopanurgus bakeri
 # sem 8, sem 13, sem 14
@@ -2045,7 +3228,7 @@ coefs(sem8)
 coefs(sem13)
 coefs(sem14)
 
-# plot the SEM
+## plot the SEM #####
 est<-data.frame(avgEst(coef_list,weights=weightslist))
 est <- tibble::rownames_to_column(est, "Predictor")
 est<-est[-1,]
@@ -2074,6 +3257,9 @@ unique(coef$Predictor)
 
 coef<-left_join(coef,est_all,by=c("Predictor","Response"))
 
+# remove variables not included in best model
+coef<-coef %>% drop_na(Estimate_MdlAvg)
+
 coef$to<-coef$Response
 coef$from<-coef$Predictor
 
@@ -2098,7 +3284,7 @@ ndf <-
     fontsize=6,
     fixedsize=TRUE,
     color="black",
-    fillcolor="lightgray",
+        fontcolor="black",     fillcolor="white",     fontname="Baskerville",
     penwidth=0.5,
     shape="rectangle",
     width=0.7,
@@ -2151,6 +3337,5802 @@ graph <-
 
 render_graph(graph)
 
+#graph %>% export_graph(file_name = "SEM_Pseudopanurgus_bakeri.pdf")
+
+
+############## (4) Pseudopanurgus didirupa ################
+
+beedatafocal<-read.csv("focalbeedata_envdata_RMBLsexratios_2023-03-24.csv")
+# subset to just include focal sites
+sitelist<-c("Almont","Almont Curve","Beaver","CDOT","Copper","Davids","Elko","Gothic","Hill","Little","Lypps","Mexican Cut","Rustlers","Seans","Tuttle","Willey")
+beedatafocal<-filter(beedatafocal, site %in% sitelist) 
+
+beedatafocal<-filter(beedatafocal,genus_species=="Pseudopanurgus didirupa")
+
+### (full) SEM: all prior year's climate and floral predictor variables 
+semFull<-psem(
+  
+  # effects of climate on sex ratios
+  glmer(sex_binom ~ prev_yr_doy_bare_ground_z +
+          prev_yr_accum_summer_precip_cm_z +
+          prev_yr_floral_days_z +
+          prev_yr_total_flowers_z +
+          (1|site) ,
+        data = beedatafocal, family = binomial),
+  
+  # effects of climate on flowers
+  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal),
+  
+  lm(prev_yr_total_flowers_z ~
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal)
+  
+)
+
+summary(semFull, .progressBar = F)
+plot(semFull)
+
+
+### (1) SEM: snowmelt 
+sem1<-psem(
+  
+  # effects of climate on sex ratios
+  glmer(sex_binom ~ prev_yr_doy_bare_ground_z +
+          (1|site) ,
+        data = beedatafocal, family = binomial),
+  
+  # effects of climate on flowers
+  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal),
+  
+  lm(prev_yr_total_flowers_z ~
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal)
+  
+)
+
+summary(sem1, .progressBar = F)
+plot(sem1)
+
+
+### (2) SEM: snowmelt, floral sum 
+sem2<-psem(
+  
+  # effects of climate on sex ratios
+  glmer(sex_binom ~ prev_yr_doy_bare_ground_z +
+          prev_yr_total_flowers_z +
+          (1|site) ,
+        data = beedatafocal, family = binomial),
+  
+  # effects of climate on flowers
+  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal),
+  
+  lm(prev_yr_total_flowers_z ~
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal)
+  
+)
+
+summary(sem2, .progressBar = F)
+plot(sem2)
+
+### (3) SEM: snowmelt, floral days 
+sem3<-psem(
+  
+  # effects of climate on sex ratios
+  glmer(sex_binom ~ prev_yr_doy_bare_ground_z +
+          prev_yr_floral_days_z +
+          (1|site) ,
+        data = beedatafocal, family = binomial),
+  
+  # effects of climate on flowers
+  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal),
+  
+  lm(prev_yr_total_flowers_z ~
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal)
+  
+)
+
+summary(sem3, .progressBar = F)
+plot(sem3)
+
+### (4) SEM: snowmelt, precip 
+sem4<-psem(
+  
+  # effects of climate on sex ratios
+  glmer(sex_binom ~ prev_yr_doy_bare_ground_z +
+          prev_yr_accum_summer_precip_cm_z +
+          (1|site) ,
+        data = beedatafocal, family = binomial),
+  
+  # effects of climate on flowers
+  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal),
+  
+  lm(prev_yr_total_flowers_z ~
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal)
+  
+)
+
+summary(sem4, .progressBar = F)
+plot(sem4)
+
+### (5) SEM: precip 
+sem5<-psem(
+  
+  # effects of climate on sex ratios
+  glmer(sex_binom ~ 
+          prev_yr_accum_summer_precip_cm_z +
+          (1|site) ,
+        data = beedatafocal, family = binomial),
+  
+  # effects of climate on flowers
+  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal),
+  
+  lm(prev_yr_total_flowers_z ~
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal)
+  
+)
+
+summary(sem5, .progressBar = F)
+plot(sem5)
+
+### (6) SEM: precip, floral sum 
+sem6<-psem(
+  
+  # effects of climate on sex ratios
+  glmer(sex_binom ~ 
+          prev_yr_accum_summer_precip_cm_z +
+          prev_yr_total_flowers_z +
+          (1|site) ,
+        data = beedatafocal, family = binomial),
+  
+  # effects of climate on flowers
+  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal),
+  
+  lm(prev_yr_total_flowers_z ~
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal)
+  
+)
+
+summary(sem6, .progressBar = F)
+plot(sem6)
+
+### (7) SEM: precip, floral days 
+sem7<-psem(
+  
+  # effects of climate on sex ratios
+  glmer(sex_binom ~ 
+          prev_yr_accum_summer_precip_cm_z +
+          prev_yr_floral_days_z +
+          (1|site) ,
+        data = beedatafocal, family = binomial),
+  
+  # effects of climate on flowers
+  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal),
+  
+  lm(prev_yr_total_flowers_z ~
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal)
+  
+)
+
+summary(sem7, .progressBar = F)
+plot(sem7)
+
+
+### (8) SEM: floral sum, floral days 
+sem8<-psem(
+  
+  # effects of climate on sex ratios
+  glmer(sex_binom ~
+          prev_yr_floral_days_z +
+          prev_yr_total_flowers_z +
+          (1|site) ,
+        data = beedatafocal, family = binomial),
+  
+  # effects of climate on flowers
+  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal),
+  
+  lm(prev_yr_total_flowers_z ~
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal)
+  
+)
+
+summary(sem8, .progressBar = F)
+plot(sem8)
+
+
+### (9) SEM: floral sum 
+sem9<-psem(
+  
+  # effects of climate on sex ratios
+  glmer(sex_binom ~
+          prev_yr_total_flowers_z +
+          (1|site) ,
+        data = beedatafocal, family = binomial),
+  
+  # effects of climate on flowers
+  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal),
+  
+  lm(prev_yr_total_flowers_z ~
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal)
+  
+)
+
+summary(sem9, .progressBar = F)
+plot(sem9)
+
+### (10) SEM: floral days 
+sem10<-psem(
+  
+  # effects of climate on sex ratios
+  glmer(sex_binom ~
+          prev_yr_floral_days_z +
+          (1|site) ,
+        data = beedatafocal, family = binomial),
+  
+  # effects of climate on flowers
+  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal),
+  
+  lm(prev_yr_total_flowers_z ~
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal)
+  
+)
+
+summary(sem10, .progressBar = F)
+plot(sem10)
 
 
 
+
+
+
+### (11) SEM: snowmelt, precip, floral sum 
+sem11<-psem(
+  
+  # effects of climate on sex ratios
+  glmer(sex_binom ~ prev_yr_doy_bare_ground_z +
+          prev_yr_accum_summer_precip_cm_z +
+          prev_yr_total_flowers_z +
+          (1|site) ,
+        data = beedatafocal, family = binomial),
+  
+  # effects of climate on flowers
+  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal),
+  
+  lm(prev_yr_total_flowers_z ~
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal)
+  
+)
+
+summary(sem11, .progressBar = F)
+plot(sem11)
+
+
+### (12) SEM: snowmelt, precip, floral days 
+sem12<-psem(
+  
+  # effects of climate on sex ratios
+  glmer(sex_binom ~ prev_yr_doy_bare_ground_z +
+          prev_yr_accum_summer_precip_cm_z +
+          prev_yr_floral_days_z +
+          (1|site) ,
+        data = beedatafocal, family = binomial),
+  
+  # effects of climate on flowers
+  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal),
+  
+  lm(prev_yr_total_flowers_z ~
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal)
+  
+)
+
+summary(sem12, .progressBar = F)
+plot(sem12)
+
+### (13) SEM: snowmelt, floral sum, floral days 
+sem13<-psem(
+  
+  # effects of climate on sex ratios
+  glmer(sex_binom ~ prev_yr_doy_bare_ground_z +
+          prev_yr_floral_days_z +
+          prev_yr_total_flowers_z +
+          (1|site) ,
+        data = beedatafocal, family = binomial),
+  
+  # effects of climate on flowers
+  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal),
+  
+  lm(prev_yr_total_flowers_z ~
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal)
+  
+)
+
+summary(sem13, .progressBar = F)
+plot(sem13)
+
+### (14) SEM: precip, floral sum, floral days 
+sem14<-psem(
+  
+  # effects of climate on sex ratios
+  glmer(sex_binom ~ 
+          prev_yr_accum_summer_precip_cm_z +
+          prev_yr_floral_days_z +
+          prev_yr_total_flowers_z +
+          (1|site) ,
+        data = beedatafocal, family = binomial),
+  
+  # effects of climate on flowers
+  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal),
+  
+  lm(prev_yr_total_flowers_z ~
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal)
+  
+)
+
+summary(sem14, .progressBar = F)
+plot(sem14)
+
+
+
+
+
+### Get summaries for SEMs #####
+
+df1<-bind_rows(data.frame(summary(semFull, .progressBar = F)$AIC),
+               data.frame(summary(sem1, .progressBar = F)$AIC),
+               data.frame(summary(sem2, .progressBar = F)$AIC),
+               data.frame(summary(sem3, .progressBar = F)$AIC),
+               data.frame(summary(sem4, .progressBar = F)$AIC), 
+               data.frame(summary(sem5, .progressBar = F)$AIC),
+               data.frame(summary(sem6, .progressBar = F)$AIC),
+               data.frame(summary(sem7, .progressBar = F)$AIC),
+               data.frame(summary(sem8, .progressBar = F)$AIC),
+               data.frame(summary(sem9, .progressBar = F)$AIC),
+               data.frame(summary(sem10, .progressBar = F)$AIC),
+               data.frame(summary(sem11, .progressBar = F)$AIC),
+               data.frame(summary(sem12, .progressBar = F)$AIC),
+               data.frame(summary(sem13, .progressBar = F)$AIC),
+               data.frame(summary(sem14, .progressBar = F)$AIC))
+
+df2<-bind_rows(bind_cols(LLchisq(semFull),fisherC(dSep(semFull))),
+               bind_cols(LLchisq(sem1),fisherC(dSep(sem1))),
+               bind_cols(LLchisq(sem2),fisherC(dSep(sem2))),
+               bind_cols(LLchisq(sem3),fisherC(dSep(sem3))),
+               bind_cols(LLchisq(sem4),fisherC(dSep(sem4))),
+               bind_cols(LLchisq(sem5),fisherC(dSep(sem5))),
+               bind_cols(LLchisq(sem6),fisherC(dSep(sem6))),
+               bind_cols(LLchisq(sem7),fisherC(dSep(sem7))),
+               bind_cols(LLchisq(sem8),fisherC(dSep(sem8))),
+               bind_cols(LLchisq(sem9),fisherC(dSep(sem9))),
+               bind_cols(LLchisq(sem10),fisherC(dSep(sem10))),
+               bind_cols(LLchisq(sem11),fisherC(dSep(sem11))),
+               bind_cols(LLchisq(sem12),fisherC(dSep(sem12))),
+               bind_cols(LLchisq(sem13),fisherC(dSep(sem13))),
+               bind_cols(LLchisq(sem14),fisherC(dSep(sem14)))
+)
+names(df2)[c(2,3,5,6)]<-c("df_chisq","p_chisq","df_fisher","p_fisher")
+df2$model<-0:14
+
+df3<-bind_cols(df2[,c(7,1:6)],df1)
+
+#write.csv(df3,"GoodnessOfFit_SEM_Pseudopanurgus_didirupa.csv", row.names=FALSE)
+
+coefs_df<-bind_rows(data.frame(coefs(semFull),model=0),
+                    data.frame(coefs(sem1),model=1),
+                    data.frame(coefs(sem2),model=2),
+                    data.frame(coefs(sem3),model=3),
+                    data.frame(coefs(sem4),model=4), 
+                    data.frame(coefs(sem5),model=5),
+                    data.frame(coefs(sem6),model=6),
+                    data.frame(coefs(sem7),model=7),
+                    data.frame(coefs(sem8),model=8),
+                    data.frame(coefs(sem9),model=9),
+                    data.frame(coefs(sem10),model=10),
+                    data.frame(coefs(sem11),model=11),
+                    data.frame(coefs(sem12),model=12),
+                    data.frame(coefs(sem13),model=13),
+                    data.frame(coefs(sem14),model=14))
+
+#write.csv(coefs_df,"coefficients_SEM_Pseudopanurgus_didirupa.csv", row.names=FALSE)
+
+
+summary(semFull, .progressBar = F) 
+summary(sem1, .progressBar = F)  
+summary(sem2, .progressBar = F)   
+summary(sem3, .progressBar = F) 
+summary(sem4, .progressBar = F)  
+summary(sem5, .progressBar = F) 
+summary(sem6, .progressBar = F)  
+summary(sem7, .progressBar = F) 
+summary(sem8, .progressBar = F) 
+summary(sem9, .progressBar = F) 
+summary(sem10, .progressBar = F) 
+summary(sem11, .progressBar = F)  
+summary(sem12, .progressBar = F) 
+summary(sem13, .progressBar = F) 
+summary(sem14, .progressBar = F) 
+
+
+### Perform model averaging #####
+
+# sem 6, sem 14
+coef_list<-list(coef(summary(sem6[[1]]))[, 1], coef(summary(sem14[[1]]))[, 1])
+weightslist<-c(summary(sem6, .progressBar = F)$AIC$AICc,summary(sem14, .progressBar = F)$AIC$AICc)
+avgEst(coef_list)
+avgEst(coef_list,weights=weightslist)
+
+coef_list2<-list(coef(summary(sem6[[2]]))[, 1], coef(summary(sem14[[2]]))[, 1])
+weightslist<-c(summary(sem6, .progressBar = F)$AIC$AICc,summary(sem14, .progressBar = F)$AIC$AICc)
+avgEst(coef_list2)
+avgEst(coef_list2,weights=weightslist)
+
+coef_list3<-list(coef(summary(sem6[[3]]))[, 1], coef(summary(sem14[[3]]))[, 1])
+weightslist<-c(summary(sem6, .progressBar = F)$AIC$AICc,summary(sem14, .progressBar = F)$AIC$AICc)
+avgEst(coef_list3)
+avgEst(coef_list3,weights=weightslist)
+
+coefs(sem6)
+coefs(sem14)
+
+## plot the SEM #####
+est<-data.frame(avgEst(coef_list,weights=weightslist))
+est <- tibble::rownames_to_column(est, "Predictor")
+est<-est[-1,]
+est$Response<-"sex_binom"
+names(est)[2]<-"Estimate_MdlAvg"
+
+est2<-data.frame(avgEst(coef_list2,weights=weightslist))
+est2 <- tibble::rownames_to_column(est2, "Predictor")
+est2<-est2[-1,]
+est2$Response<-"prev_yr_floral_days_z"
+names(est2)[2]<-"Estimate_MdlAvg"
+
+est3<-data.frame(avgEst(coef_list3,weights=weightslist))
+est3 <- tibble::rownames_to_column(est3, "Predictor")
+est3<-est3[-1,]
+est3$Response<-"prev_yr_total_flowers_z"
+names(est3)[2]<-"Estimate_MdlAvg"
+
+est_all<-bind_rows(est,est2,est3)
+
+
+coef<-summary(semFull, .progressBar = F)$coef
+coef
+unique(coef$Response)
+unique(coef$Predictor)
+
+coef<-left_join(coef,est_all,by=c("Predictor","Response"))
+
+# remove variables not included in best model
+coef<-coef %>% drop_na(Estimate_MdlAvg)
+
+coef$to<-coef$Response
+coef$from<-coef$Predictor
+
+coef$to[coef$to=="sex_binom"] <- 1
+coef$to[coef$to=="prev_yr_floral_days_z"] <- 2
+coef$to[coef$to=="prev_yr_total_flowers_z"] <- 3
+coef$to[coef$to=="prev_yr_doy_bare_ground_z"] <- 4
+coef$to[coef$to=="prev_yr_accum_summer_precip_cm_z"] <- 5
+
+coef$from[coef$from=="sex_binom"] <- 1
+coef$from[coef$from=="prev_yr_floral_days_z"] <- 2
+coef$from[coef$from=="prev_yr_total_flowers_z"] <- 3
+coef$from[coef$from=="prev_yr_doy_bare_ground_z"] <- 4
+coef$from[coef$from=="prev_yr_accum_summer_precip_cm_z"] <- 5
+
+coef$style<-ifelse(coef$Estimate_MdlAvg>0,"solid","dashed")
+coef$color<-ifelse(coef$P.Value>=0.05,"gray","black")
+
+ndf <-
+  create_node_df(
+    n = 5,
+    fontsize=6,
+    fixedsize=TRUE,
+    color="black",
+        fontcolor="black",     fillcolor="white",     fontname="Baskerville",
+    penwidth=0.5,
+    shape="rectangle",
+    width=0.7,
+    height=0.3,
+    label = c("Female/male \nratio","Floral days \n(prior year)", "Floral sum \n(prior year)","Snowmelt date \n(prior year)","Summer precip. \n(prior year)"))
+
+graph <-
+  create_graph(
+    nodes_df = ndf)
+
+render_graph(graph)
+
+edf <-
+  create_edge_df(
+    from = coef$from,
+    to = coef$to,
+    rel = "leading_to",
+    #label = round(coef$Estimate_MdlAvg,digits=2),
+    penwidth = abs(coef$Estimate_MdlAvg*2),
+    fontsize=5.5,
+    fontcolor="brown3",
+    #color=coef$color,
+    color="black",
+    style=coef$style)
+
+graph <-
+  create_graph(
+    nodes_df = ndf,
+    edges_df = edf)
+
+render_graph(graph)
+
+graph <-
+  graph %>%
+  set_node_position(
+    node = 1, # sex ratio
+    x = 3, y = 1.5) %>%
+  set_node_position(
+    node = 2, # floral days
+    x = 2, y = 1) %>%
+  set_node_position(
+    node = 3, # floral sum
+    x = 2, y = 2) %>%
+  set_node_position(
+    node = 4, # snowmelt date
+    x = 1, y = 2) %>%
+  set_node_position(
+    node = 5, # summer precip
+    x = 1, y = 1)
+
+render_graph(graph)
+
+#graph %>% export_graph(file_name = "SEM_Pseudopanurgus_didirupa.pdf")
+
+
+############## (5) Ceratina nanula ################
+
+beedatafocal<-read.csv("focalbeedata_envdata_RMBLsexratios_2023-03-24.csv")
+# subset to just include focal sites
+sitelist<-c("Almont","Almont Curve","Beaver","CDOT","Copper","Davids","Elko","Gothic","Hill","Little","Lypps","Mexican Cut","Rustlers","Seans","Tuttle","Willey")
+beedatafocal<-filter(beedatafocal, site %in% sitelist) 
+
+beedatafocal<-filter(beedatafocal,genus_species=="Ceratina nanula")
+
+### (full) SEM: all prior year's climate and floral predictor variables 
+semFull<-psem(
+  
+  # effects of climate on sex ratios
+  glmer(sex_binom ~ prev_yr_doy_bare_ground_z +
+          prev_yr_accum_summer_precip_cm_z +
+          prev_yr_floral_days_z +
+          prev_yr_total_flowers_z +
+          (1|site) ,
+        data = beedatafocal, family = binomial),
+  
+  # effects of climate on flowers
+  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal),
+  
+  lm(prev_yr_total_flowers_z ~
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal)
+  
+)
+
+summary(semFull, .progressBar = F)
+plot(semFull)
+
+
+### (1) SEM: snowmelt 
+sem1<-psem(
+  
+  # effects of climate on sex ratios
+  glmer(sex_binom ~ prev_yr_doy_bare_ground_z +
+          (1|site) ,
+        data = beedatafocal, family = binomial),
+  
+  # effects of climate on flowers
+  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal),
+  
+  lm(prev_yr_total_flowers_z ~
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal)
+  
+)
+
+summary(sem1, .progressBar = F)
+plot(sem1)
+
+
+### (2) SEM: snowmelt, floral sum 
+sem2<-psem(
+  
+  # effects of climate on sex ratios
+  glmer(sex_binom ~ prev_yr_doy_bare_ground_z +
+          prev_yr_total_flowers_z +
+          (1|site) ,
+        data = beedatafocal, family = binomial),
+  
+  # effects of climate on flowers
+  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal),
+  
+  lm(prev_yr_total_flowers_z ~
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal)
+  
+)
+
+summary(sem2, .progressBar = F)
+plot(sem2)
+
+### (3) SEM: snowmelt, floral days 
+sem3<-psem(
+  
+  # effects of climate on sex ratios
+  glmer(sex_binom ~ prev_yr_doy_bare_ground_z +
+          prev_yr_floral_days_z +
+          (1|site) ,
+        data = beedatafocal, family = binomial),
+  
+  # effects of climate on flowers
+  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal),
+  
+  lm(prev_yr_total_flowers_z ~
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal)
+  
+)
+
+summary(sem3, .progressBar = F)
+plot(sem3)
+
+### (4) SEM: snowmelt, precip 
+sem4<-psem(
+  
+  # effects of climate on sex ratios
+  glmer(sex_binom ~ prev_yr_doy_bare_ground_z +
+          prev_yr_accum_summer_precip_cm_z +
+          (1|site) ,
+        data = beedatafocal, family = binomial),
+  
+  # effects of climate on flowers
+  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal),
+  
+  lm(prev_yr_total_flowers_z ~
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal)
+  
+)
+
+summary(sem4, .progressBar = F)
+plot(sem4)
+
+### (5) SEM: precip 
+sem5<-psem(
+  
+  # effects of climate on sex ratios
+  glmer(sex_binom ~ 
+          prev_yr_accum_summer_precip_cm_z +
+          (1|site) ,
+        data = beedatafocal, family = binomial),
+  
+  # effects of climate on flowers
+  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal),
+  
+  lm(prev_yr_total_flowers_z ~
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal)
+  
+)
+
+summary(sem5, .progressBar = F)
+plot(sem5)
+
+### (6) SEM: precip, floral sum 
+sem6<-psem(
+  
+  # effects of climate on sex ratios
+  glmer(sex_binom ~ 
+          prev_yr_accum_summer_precip_cm_z +
+          prev_yr_total_flowers_z +
+          (1|site) ,
+        data = beedatafocal, family = binomial),
+  
+  # effects of climate on flowers
+  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal),
+  
+  lm(prev_yr_total_flowers_z ~
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal)
+  
+)
+
+summary(sem6, .progressBar = F)
+plot(sem6)
+
+### (7) SEM: precip, floral days 
+sem7<-psem(
+  
+  # effects of climate on sex ratios
+  glmer(sex_binom ~ 
+          prev_yr_accum_summer_precip_cm_z +
+          prev_yr_floral_days_z +
+          (1|site) ,
+        data = beedatafocal, family = binomial),
+  
+  # effects of climate on flowers
+  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal),
+  
+  lm(prev_yr_total_flowers_z ~
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal)
+  
+)
+
+summary(sem7, .progressBar = F)
+plot(sem7)
+
+
+### (8) SEM: floral sum, floral days 
+sem8<-psem(
+  
+  # effects of climate on sex ratios
+  glmer(sex_binom ~
+          prev_yr_floral_days_z +
+          prev_yr_total_flowers_z +
+          (1|site) ,
+        data = beedatafocal, family = binomial),
+  
+  # effects of climate on flowers
+  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal),
+  
+  lm(prev_yr_total_flowers_z ~
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal)
+  
+)
+
+summary(sem8, .progressBar = F)
+plot(sem8)
+
+
+### (9) SEM: floral sum 
+sem9<-psem(
+  
+  # effects of climate on sex ratios
+  glmer(sex_binom ~
+          prev_yr_total_flowers_z +
+          (1|site) ,
+        data = beedatafocal, family = binomial),
+  
+  # effects of climate on flowers
+  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal),
+  
+  lm(prev_yr_total_flowers_z ~
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal)
+  
+)
+
+summary(sem9, .progressBar = F)
+plot(sem9)
+
+### (10) SEM: floral days 
+sem10<-psem(
+  
+  # effects of climate on sex ratios
+  glmer(sex_binom ~
+          prev_yr_floral_days_z +
+          (1|site) ,
+        data = beedatafocal, family = binomial),
+  
+  # effects of climate on flowers
+  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal),
+  
+  lm(prev_yr_total_flowers_z ~
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal)
+  
+)
+
+summary(sem10, .progressBar = F)
+plot(sem10)
+
+
+
+
+
+
+### (11) SEM: snowmelt, precip, floral sum 
+sem11<-psem(
+  
+  # effects of climate on sex ratios
+  glmer(sex_binom ~ prev_yr_doy_bare_ground_z +
+          prev_yr_accum_summer_precip_cm_z +
+          prev_yr_total_flowers_z +
+          (1|site) ,
+        data = beedatafocal, family = binomial),
+  
+  # effects of climate on flowers
+  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal),
+  
+  lm(prev_yr_total_flowers_z ~
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal)
+  
+)
+
+summary(sem11, .progressBar = F)
+plot(sem11)
+
+
+### (12) SEM: snowmelt, precip, floral days 
+sem12<-psem(
+  
+  # effects of climate on sex ratios
+  glmer(sex_binom ~ prev_yr_doy_bare_ground_z +
+          prev_yr_accum_summer_precip_cm_z +
+          prev_yr_floral_days_z +
+          (1|site) ,
+        data = beedatafocal, family = binomial),
+  
+  # effects of climate on flowers
+  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal),
+  
+  lm(prev_yr_total_flowers_z ~
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal)
+  
+)
+
+summary(sem12, .progressBar = F)
+plot(sem12)
+
+### (13) SEM: snowmelt, floral sum, floral days 
+sem13<-psem(
+  
+  # effects of climate on sex ratios
+  glmer(sex_binom ~ prev_yr_doy_bare_ground_z +
+          prev_yr_floral_days_z +
+          prev_yr_total_flowers_z +
+          (1|site) ,
+        data = beedatafocal, family = binomial),
+  
+  # effects of climate on flowers
+  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal),
+  
+  lm(prev_yr_total_flowers_z ~
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal)
+  
+)
+
+summary(sem13, .progressBar = F)
+plot(sem13)
+
+### (14) SEM: precip, floral sum, floral days 
+sem14<-psem(
+  
+  # effects of climate on sex ratios
+  glmer(sex_binom ~ 
+          prev_yr_accum_summer_precip_cm_z +
+          prev_yr_floral_days_z +
+          prev_yr_total_flowers_z +
+          (1|site) ,
+        data = beedatafocal, family = binomial),
+  
+  # effects of climate on flowers
+  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal),
+  
+  lm(prev_yr_total_flowers_z ~
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal)
+  
+)
+
+summary(sem14, .progressBar = F)
+plot(sem14)
+
+
+
+
+
+### Get summaries for SEMs #####
+
+df1<-bind_rows(data.frame(summary(semFull, .progressBar = F)$AIC),
+               data.frame(summary(sem1, .progressBar = F)$AIC),
+               data.frame(summary(sem2, .progressBar = F)$AIC),
+               data.frame(summary(sem3, .progressBar = F)$AIC),
+               data.frame(summary(sem4, .progressBar = F)$AIC), 
+               data.frame(summary(sem5, .progressBar = F)$AIC),
+               data.frame(summary(sem6, .progressBar = F)$AIC),
+               data.frame(summary(sem7, .progressBar = F)$AIC),
+               data.frame(summary(sem8, .progressBar = F)$AIC),
+               data.frame(summary(sem9, .progressBar = F)$AIC),
+               data.frame(summary(sem10, .progressBar = F)$AIC),
+               data.frame(summary(sem11, .progressBar = F)$AIC),
+               data.frame(summary(sem12, .progressBar = F)$AIC),
+               data.frame(summary(sem13, .progressBar = F)$AIC),
+               data.frame(summary(sem14, .progressBar = F)$AIC))
+
+df2<-bind_rows(bind_cols(LLchisq(semFull),fisherC(dSep(semFull))),
+               bind_cols(LLchisq(sem1),fisherC(dSep(sem1))),
+               bind_cols(LLchisq(sem2),fisherC(dSep(sem2))),
+               bind_cols(LLchisq(sem3),fisherC(dSep(sem3))),
+               bind_cols(LLchisq(sem4),fisherC(dSep(sem4))),
+               bind_cols(LLchisq(sem5),fisherC(dSep(sem5))),
+               bind_cols(LLchisq(sem6),fisherC(dSep(sem6))),
+               bind_cols(LLchisq(sem7),fisherC(dSep(sem7))),
+               bind_cols(LLchisq(sem8),fisherC(dSep(sem8))),
+               bind_cols(LLchisq(sem9),fisherC(dSep(sem9))),
+               bind_cols(LLchisq(sem10),fisherC(dSep(sem10))),
+               bind_cols(LLchisq(sem11),fisherC(dSep(sem11))),
+               bind_cols(LLchisq(sem12),fisherC(dSep(sem12))),
+               bind_cols(LLchisq(sem13),fisherC(dSep(sem13))),
+               bind_cols(LLchisq(sem14),fisherC(dSep(sem14)))
+)
+names(df2)[c(2,3,5,6)]<-c("df_chisq","p_chisq","df_fisher","p_fisher")
+df2$model<-0:14
+
+df3<-bind_cols(df2[,c(7,1:6)],df1)
+
+#write.csv(df3,"GoodnessOfFit_SEM_Ceratina_nanula.csv", row.names=FALSE)
+
+coefs_df<-bind_rows(data.frame(coefs(semFull),model=0),
+                    data.frame(coefs(sem1),model=1),
+                    data.frame(coefs(sem2),model=2),
+                    data.frame(coefs(sem3),model=3),
+                    data.frame(coefs(sem4),model=4), 
+                    data.frame(coefs(sem5),model=5),
+                    data.frame(coefs(sem6),model=6),
+                    data.frame(coefs(sem7),model=7),
+                    data.frame(coefs(sem8),model=8),
+                    data.frame(coefs(sem9),model=9),
+                    data.frame(coefs(sem10),model=10),
+                    data.frame(coefs(sem11),model=11),
+                    data.frame(coefs(sem12),model=12),
+                    data.frame(coefs(sem13),model=13),
+                    data.frame(coefs(sem14),model=14))
+
+#write.csv(coefs_df,"coefficients_SEM_Ceratina_nanula.csv", row.names=FALSE)
+
+
+summary(semFull, .progressBar = F) 
+summary(sem1, .progressBar = F)  
+summary(sem2, .progressBar = F)   
+summary(sem3, .progressBar = F) 
+summary(sem4, .progressBar = F)  
+summary(sem5, .progressBar = F) 
+summary(sem6, .progressBar = F)  
+summary(sem7, .progressBar = F) 
+summary(sem8, .progressBar = F) 
+summary(sem9, .progressBar = F) 
+summary(sem10, .progressBar = F) 
+summary(sem11, .progressBar = F)  
+summary(sem12, .progressBar = F) 
+summary(sem13, .progressBar = F) 
+summary(sem14, .progressBar = F) 
+
+
+### Perform model averaging #####
+
+# sem full, sem 6, sem 11, sem 14
+coef_list<-list(coef(summary(semFull[[1]]))[, 1], coef(summary(sem6[[1]]))[, 1],coef(summary(sem11[[1]]))[, 1],coef(summary(sem14[[1]]))[, 1])
+weightslist<-c(summary(semFull, .progressBar = F)$AIC$AICc,summary(sem6, .progressBar = F)$AIC$AICc,summary(sem11, .progressBar = F)$AIC$AICc,summary(sem14, .progressBar = F)$AIC$AICc)
+avgEst(coef_list)
+avgEst(coef_list,weights=weightslist)
+
+coef_list2<-list(coef(summary(semFull[[2]]))[, 1], coef(summary(sem6[[2]]))[, 1],coef(summary(sem11[[2]]))[, 1],coef(summary(sem14[[2]]))[, 1])
+weightslist<-c(summary(semFull, .progressBar = F)$AIC$AICc,summary(sem6, .progressBar = F)$AIC$AICc,summary(sem11, .progressBar = F)$AIC$AICc,summary(sem14, .progressBar = F)$AIC$AICc)
+avgEst(coef_list2)
+avgEst(coef_list2,weights=weightslist)
+
+coef_list3<-list(coef(summary(semFull[[3]]))[, 1], coef(summary(sem6[[3]]))[, 1],coef(summary(sem11[[3]]))[, 1],coef(summary(sem14[[3]]))[, 1])
+weightslist<-c(summary(semFull, .progressBar = F)$AIC$AICc,summary(sem6, .progressBar = F)$AIC$AICc,summary(sem11, .progressBar = F)$AIC$AICc,summary(sem14, .progressBar = F)$AIC$AICc)
+avgEst(coef_list3)
+avgEst(coef_list3,weights=weightslist)
+
+coefs(semFull)
+coefs(sem6)
+coefs(sem11)
+coefs(sem14)
+
+## plot the SEM #####
+est<-data.frame(avgEst(coef_list,weights=weightslist))
+est <- tibble::rownames_to_column(est, "Predictor")
+est<-est[-1,]
+est$Response<-"sex_binom"
+names(est)[2]<-"Estimate_MdlAvg"
+
+est2<-data.frame(avgEst(coef_list2,weights=weightslist))
+est2 <- tibble::rownames_to_column(est2, "Predictor")
+est2<-est2[-1,]
+est2$Response<-"prev_yr_floral_days_z"
+names(est2)[2]<-"Estimate_MdlAvg"
+
+est3<-data.frame(avgEst(coef_list3,weights=weightslist))
+est3 <- tibble::rownames_to_column(est3, "Predictor")
+est3<-est3[-1,]
+est3$Response<-"prev_yr_total_flowers_z"
+names(est3)[2]<-"Estimate_MdlAvg"
+
+est_all<-bind_rows(est,est2,est3)
+
+
+coef<-summary(semFull, .progressBar = F)$coef
+coef
+unique(coef$Response)
+unique(coef$Predictor)
+
+coef<-left_join(coef,est_all,by=c("Predictor","Response"))
+
+# remove variables not included in best model
+coef<-coef %>% drop_na(Estimate_MdlAvg)
+
+coef$to<-coef$Response
+coef$from<-coef$Predictor
+
+coef$to[coef$to=="sex_binom"] <- 1
+coef$to[coef$to=="prev_yr_floral_days_z"] <- 2
+coef$to[coef$to=="prev_yr_total_flowers_z"] <- 3
+coef$to[coef$to=="prev_yr_doy_bare_ground_z"] <- 4
+coef$to[coef$to=="prev_yr_accum_summer_precip_cm_z"] <- 5
+
+coef$from[coef$from=="sex_binom"] <- 1
+coef$from[coef$from=="prev_yr_floral_days_z"] <- 2
+coef$from[coef$from=="prev_yr_total_flowers_z"] <- 3
+coef$from[coef$from=="prev_yr_doy_bare_ground_z"] <- 4
+coef$from[coef$from=="prev_yr_accum_summer_precip_cm_z"] <- 5
+
+coef$style<-ifelse(coef$Estimate_MdlAvg>0,"solid","dashed")
+coef$color<-ifelse(coef$P.Value>=0.05,"gray","black")
+
+ndf <-
+  create_node_df(
+    n = 5,
+    fontsize=6,
+    fixedsize=TRUE,
+    color="black",
+        fontcolor="black",     fillcolor="white",     fontname="Baskerville",
+    penwidth=0.5,
+    shape="rectangle",
+    width=0.7,
+    height=0.3,
+    label = c("Female/male \nratio","Floral days \n(prior year)", "Floral sum \n(prior year)","Snowmelt date \n(prior year)","Summer precip. \n(prior year)"))
+
+graph <-
+  create_graph(
+    nodes_df = ndf)
+
+render_graph(graph)
+
+edf <-
+  create_edge_df(
+    from = coef$from,
+    to = coef$to,
+    rel = "leading_to",
+    #label = round(coef$Estimate_MdlAvg,digits=2),
+    penwidth = abs(coef$Estimate_MdlAvg*2),
+    fontsize=5.5,
+    fontcolor="brown3",
+    #color=coef$color,
+    color="black",
+    style=coef$style)
+
+graph <-
+  create_graph(
+    nodes_df = ndf,
+    edges_df = edf)
+
+render_graph(graph)
+
+graph <-
+  graph %>%
+  set_node_position(
+    node = 1, # sex ratio
+    x = 3, y = 1.5) %>%
+  set_node_position(
+    node = 2, # floral days
+    x = 2, y = 1) %>%
+  set_node_position(
+    node = 3, # floral sum
+    x = 2, y = 2) %>%
+  set_node_position(
+    node = 4, # snowmelt date
+    x = 1, y = 2) %>%
+  set_node_position(
+    node = 5, # summer precip
+    x = 1, y = 1)
+
+render_graph(graph)
+
+#graph %>% export_graph(file_name = "SEM_Ceratina_nanula.pdf")
+
+
+############## (6) Hylaeus annulatus ################
+
+beedatafocal<-read.csv("focalbeedata_envdata_RMBLsexratios_2023-03-24.csv")
+# subset to just include focal sites
+sitelist<-c("Almont","Almont Curve","Beaver","CDOT","Copper","Davids","Elko","Gothic","Hill","Little","Lypps","Mexican Cut","Rustlers","Seans","Tuttle","Willey")
+beedatafocal<-filter(beedatafocal, site %in% sitelist) 
+
+beedatafocal<-filter(beedatafocal,genus_species=="Hylaeus annulatus")
+
+### (full) SEM: all prior year's climate and floral predictor variables 
+semFull<-psem(
+  
+  # effects of climate on sex ratios
+  glmer(sex_binom ~ prev_yr_doy_bare_ground_z +
+          prev_yr_accum_summer_precip_cm_z +
+          prev_yr_floral_days_z +
+          prev_yr_total_flowers_z +
+          (1|site) ,
+        data = beedatafocal, family = binomial),
+  
+  # effects of climate on flowers
+  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal),
+  
+  lm(prev_yr_total_flowers_z ~
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal)
+  
+)
+
+summary(semFull, .progressBar = F)
+plot(semFull)
+
+
+### (1) SEM: snowmelt 
+sem1<-psem(
+  
+  # effects of climate on sex ratios
+  glmer(sex_binom ~ prev_yr_doy_bare_ground_z +
+          (1|site) ,
+        data = beedatafocal, family = binomial),
+  
+  # effects of climate on flowers
+  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal),
+  
+  lm(prev_yr_total_flowers_z ~
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal)
+  
+)
+
+summary(sem1, .progressBar = F)
+plot(sem1)
+
+
+### (2) SEM: snowmelt, floral sum 
+sem2<-psem(
+  
+  # effects of climate on sex ratios
+  glmer(sex_binom ~ prev_yr_doy_bare_ground_z +
+          prev_yr_total_flowers_z +
+          (1|site) ,
+        data = beedatafocal, family = binomial),
+  
+  # effects of climate on flowers
+  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal),
+  
+  lm(prev_yr_total_flowers_z ~
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal)
+  
+)
+
+summary(sem2, .progressBar = F)
+plot(sem2)
+
+### (3) SEM: snowmelt, floral days 
+sem3<-psem(
+  
+  # effects of climate on sex ratios
+  glmer(sex_binom ~ prev_yr_doy_bare_ground_z +
+          prev_yr_floral_days_z +
+          (1|site) ,
+        data = beedatafocal, family = binomial),
+  
+  # effects of climate on flowers
+  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal),
+  
+  lm(prev_yr_total_flowers_z ~
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal)
+  
+)
+
+summary(sem3, .progressBar = F)
+plot(sem3)
+
+### (4) SEM: snowmelt, precip 
+sem4<-psem(
+  
+  # effects of climate on sex ratios
+  glmer(sex_binom ~ prev_yr_doy_bare_ground_z +
+          prev_yr_accum_summer_precip_cm_z +
+          (1|site) ,
+        data = beedatafocal, family = binomial),
+  
+  # effects of climate on flowers
+  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal),
+  
+  lm(prev_yr_total_flowers_z ~
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal)
+  
+)
+
+summary(sem4, .progressBar = F)
+plot(sem4)
+
+### (5) SEM: precip 
+sem5<-psem(
+  
+  # effects of climate on sex ratios
+  glmer(sex_binom ~ 
+          prev_yr_accum_summer_precip_cm_z +
+          (1|site) ,
+        data = beedatafocal, family = binomial),
+  
+  # effects of climate on flowers
+  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal),
+  
+  lm(prev_yr_total_flowers_z ~
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal)
+  
+)
+
+summary(sem5, .progressBar = F)
+plot(sem5)
+
+### (6) SEM: precip, floral sum 
+sem6<-psem(
+  
+  # effects of climate on sex ratios
+  glmer(sex_binom ~ 
+          prev_yr_accum_summer_precip_cm_z +
+          prev_yr_total_flowers_z +
+          (1|site) ,
+        data = beedatafocal, family = binomial),
+  
+  # effects of climate on flowers
+  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal),
+  
+  lm(prev_yr_total_flowers_z ~
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal)
+  
+)
+
+summary(sem6, .progressBar = F)
+plot(sem6)
+
+### (7) SEM: precip, floral days 
+sem7<-psem(
+  
+  # effects of climate on sex ratios
+  glmer(sex_binom ~ 
+          prev_yr_accum_summer_precip_cm_z +
+          prev_yr_floral_days_z +
+          (1|site) ,
+        data = beedatafocal, family = binomial),
+  
+  # effects of climate on flowers
+  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal),
+  
+  lm(prev_yr_total_flowers_z ~
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal)
+  
+)
+
+summary(sem7, .progressBar = F)
+plot(sem7)
+
+
+### (8) SEM: floral sum, floral days 
+sem8<-psem(
+  
+  # effects of climate on sex ratios
+  glmer(sex_binom ~
+          prev_yr_floral_days_z +
+          prev_yr_total_flowers_z +
+          (1|site) ,
+        data = beedatafocal, family = binomial),
+  
+  # effects of climate on flowers
+  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal),
+  
+  lm(prev_yr_total_flowers_z ~
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal)
+  
+)
+
+summary(sem8, .progressBar = F)
+plot(sem8)
+
+
+### (9) SEM: floral sum 
+sem9<-psem(
+  
+  # effects of climate on sex ratios
+  glmer(sex_binom ~
+          prev_yr_total_flowers_z +
+          (1|site) ,
+        data = beedatafocal, family = binomial),
+  
+  # effects of climate on flowers
+  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal),
+  
+  lm(prev_yr_total_flowers_z ~
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal)
+  
+)
+
+summary(sem9, .progressBar = F)
+plot(sem9)
+
+### (10) SEM: floral days 
+sem10<-psem(
+  
+  # effects of climate on sex ratios
+  glmer(sex_binom ~
+          prev_yr_floral_days_z +
+          (1|site) ,
+        data = beedatafocal, family = binomial),
+  
+  # effects of climate on flowers
+  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal),
+  
+  lm(prev_yr_total_flowers_z ~
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal)
+  
+)
+
+summary(sem10, .progressBar = F)
+plot(sem10)
+
+
+
+
+
+
+### (11) SEM: snowmelt, precip, floral sum 
+sem11<-psem(
+  
+  # effects of climate on sex ratios
+  glmer(sex_binom ~ prev_yr_doy_bare_ground_z +
+          prev_yr_accum_summer_precip_cm_z +
+          prev_yr_total_flowers_z +
+          (1|site) ,
+        data = beedatafocal, family = binomial),
+  
+  # effects of climate on flowers
+  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal),
+  
+  lm(prev_yr_total_flowers_z ~
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal)
+  
+)
+
+summary(sem11, .progressBar = F)
+plot(sem11)
+
+
+### (12) SEM: snowmelt, precip, floral days 
+sem12<-psem(
+  
+  # effects of climate on sex ratios
+  glmer(sex_binom ~ prev_yr_doy_bare_ground_z +
+          prev_yr_accum_summer_precip_cm_z +
+          prev_yr_floral_days_z +
+          (1|site) ,
+        data = beedatafocal, family = binomial),
+  
+  # effects of climate on flowers
+  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal),
+  
+  lm(prev_yr_total_flowers_z ~
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal)
+  
+)
+
+summary(sem12, .progressBar = F)
+plot(sem12)
+
+### (13) SEM: snowmelt, floral sum, floral days 
+sem13<-psem(
+  
+  # effects of climate on sex ratios
+  glmer(sex_binom ~ prev_yr_doy_bare_ground_z +
+          prev_yr_floral_days_z +
+          prev_yr_total_flowers_z +
+          (1|site) ,
+        data = beedatafocal, family = binomial),
+  
+  # effects of climate on flowers
+  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal),
+  
+  lm(prev_yr_total_flowers_z ~
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal)
+  
+)
+
+summary(sem13, .progressBar = F)
+plot(sem13)
+
+### (14) SEM: precip, floral sum, floral days 
+sem14<-psem(
+  
+  # effects of climate on sex ratios
+  glmer(sex_binom ~ 
+          prev_yr_accum_summer_precip_cm_z +
+          prev_yr_floral_days_z +
+          prev_yr_total_flowers_z +
+          (1|site) ,
+        data = beedatafocal, family = binomial),
+  
+  # effects of climate on flowers
+  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal),
+  
+  lm(prev_yr_total_flowers_z ~
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal)
+  
+)
+
+summary(sem14, .progressBar = F)
+plot(sem14)
+
+
+
+
+
+
+### Get summaries for SEMs #####
+
+df1<-bind_rows(data.frame(summary(semFull, .progressBar = F)$AIC),
+               data.frame(summary(sem1, .progressBar = F)$AIC),
+               data.frame(summary(sem2, .progressBar = F)$AIC),
+               data.frame(summary(sem3, .progressBar = F)$AIC),
+               data.frame(summary(sem4, .progressBar = F)$AIC), 
+               data.frame(summary(sem5, .progressBar = F)$AIC),
+               data.frame(summary(sem6, .progressBar = F)$AIC),
+               data.frame(summary(sem7, .progressBar = F)$AIC),
+               data.frame(summary(sem8, .progressBar = F)$AIC),
+               data.frame(summary(sem9, .progressBar = F)$AIC),
+               data.frame(summary(sem10, .progressBar = F)$AIC),
+               data.frame(summary(sem11, .progressBar = F)$AIC),
+               data.frame(summary(sem12, .progressBar = F)$AIC),
+               data.frame(summary(sem13, .progressBar = F)$AIC),
+               data.frame(summary(sem14, .progressBar = F)$AIC))
+
+df2<-bind_rows(bind_cols(LLchisq(semFull),fisherC(dSep(semFull))),
+               bind_cols(LLchisq(sem1),fisherC(dSep(sem1))),
+               bind_cols(LLchisq(sem2),fisherC(dSep(sem2))),
+               bind_cols(LLchisq(sem3),fisherC(dSep(sem3))),
+               bind_cols(LLchisq(sem4),fisherC(dSep(sem4))),
+               bind_cols(LLchisq(sem5),fisherC(dSep(sem5))),
+               bind_cols(LLchisq(sem6),fisherC(dSep(sem6))),
+               bind_cols(LLchisq(sem7),fisherC(dSep(sem7))),
+               bind_cols(LLchisq(sem8),fisherC(dSep(sem8))),
+               bind_cols(LLchisq(sem9),fisherC(dSep(sem9))),
+               bind_cols(LLchisq(sem10),fisherC(dSep(sem10))),
+               bind_cols(LLchisq(sem11),fisherC(dSep(sem11))),
+               bind_cols(LLchisq(sem12),fisherC(dSep(sem12))),
+               bind_cols(LLchisq(sem13),fisherC(dSep(sem13))),
+               bind_cols(LLchisq(sem14),fisherC(dSep(sem14)))
+)
+names(df2)[c(2,3,5,6)]<-c("df_chisq","p_chisq","df_fisher","p_fisher")
+df2$model<-0:14
+
+df3<-bind_cols(df2[,c(7,1:6)],df1)
+
+#write.csv(df3,"GoodnessOfFit_SEM_Hylaeus_annulatus.csv", row.names=FALSE)
+
+coefs_df<-bind_rows(data.frame(coefs(semFull),model=0),
+                    data.frame(coefs(sem1),model=1),
+                    data.frame(coefs(sem2),model=2),
+                    data.frame(coefs(sem3),model=3),
+                    data.frame(coefs(sem4),model=4), 
+                    data.frame(coefs(sem5),model=5),
+                    data.frame(coefs(sem6),model=6),
+                    data.frame(coefs(sem7),model=7),
+                    data.frame(coefs(sem8),model=8),
+                    data.frame(coefs(sem9),model=9),
+                    data.frame(coefs(sem10),model=10),
+                    data.frame(coefs(sem11),model=11),
+                    data.frame(coefs(sem12),model=12),
+                    data.frame(coefs(sem13),model=13),
+                    data.frame(coefs(sem14),model=14))
+
+#write.csv(coefs_df,"coefficients_SEM_Hylaeus_annulatus.csv", row.names=FALSE)
+
+
+summary(semFull, .progressBar = F) 
+summary(sem1, .progressBar = F)  
+summary(sem2, .progressBar = F)   
+summary(sem3, .progressBar = F) 
+summary(sem4, .progressBar = F)  
+summary(sem5, .progressBar = F) 
+summary(sem6, .progressBar = F)  
+summary(sem7, .progressBar = F) 
+summary(sem8, .progressBar = F) 
+summary(sem9, .progressBar = F) 
+summary(sem10, .progressBar = F) 
+summary(sem11, .progressBar = F)  
+summary(sem12, .progressBar = F) 
+summary(sem13, .progressBar = F) 
+summary(sem14, .progressBar = F) 
+
+
+## No significant predictors of sex ratio
+
+
+############## (7) Agapostemon texanus ################
+
+beedatafocal<-read.csv("focalbeedata_envdata_RMBLsexratios_2023-03-24.csv")
+# subset to just include focal sites
+sitelist<-c("Almont","Almont Curve","Beaver","CDOT","Copper","Davids","Elko","Gothic","Hill","Little","Lypps","Mexican Cut","Rustlers","Seans","Tuttle","Willey")
+beedatafocal<-filter(beedatafocal, site %in% sitelist) 
+
+beedatafocal<-filter(beedatafocal,genus_species=="Agapostemon texanus")
+
+### (full) SEM: all prior year's climate and floral predictor variables 
+semFull<-psem(
+  
+  # effects of climate on sex ratios
+  glmer(sex_binom ~ prev_yr_doy_bare_ground_z +
+          prev_yr_accum_summer_precip_cm_z +
+          prev_yr_floral_days_z +
+          prev_yr_total_flowers_z +
+          (1|site) ,
+        data = beedatafocal, family = binomial),
+  
+  # effects of climate on flowers
+  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal),
+  
+  lm(prev_yr_total_flowers_z ~
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal)
+  
+)
+
+summary(semFull, .progressBar = F)
+plot(semFull)
+
+
+### (1) SEM: snowmelt 
+sem1<-psem(
+  
+  # effects of climate on sex ratios
+  glmer(sex_binom ~ prev_yr_doy_bare_ground_z +
+          (1|site) ,
+        data = beedatafocal, family = binomial),
+  
+  # effects of climate on flowers
+  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal),
+  
+  lm(prev_yr_total_flowers_z ~
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal)
+  
+)
+
+summary(sem1, .progressBar = F)
+plot(sem1)
+
+
+### (2) SEM: snowmelt, floral sum 
+sem2<-psem(
+  
+  # effects of climate on sex ratios
+  glmer(sex_binom ~ prev_yr_doy_bare_ground_z +
+          prev_yr_total_flowers_z +
+          (1|site) ,
+        data = beedatafocal, family = binomial),
+  
+  # effects of climate on flowers
+  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal),
+  
+  lm(prev_yr_total_flowers_z ~
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal)
+  
+)
+
+summary(sem2, .progressBar = F)
+plot(sem2)
+
+### (3) SEM: snowmelt, floral days 
+sem3<-psem(
+  
+  # effects of climate on sex ratios
+  glmer(sex_binom ~ prev_yr_doy_bare_ground_z +
+          prev_yr_floral_days_z +
+          (1|site) ,
+        data = beedatafocal, family = binomial),
+  
+  # effects of climate on flowers
+  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal),
+  
+  lm(prev_yr_total_flowers_z ~
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal)
+  
+)
+
+summary(sem3, .progressBar = F)
+plot(sem3)
+
+### (4) SEM: snowmelt, precip 
+sem4<-psem(
+  
+  # effects of climate on sex ratios
+  glmer(sex_binom ~ prev_yr_doy_bare_ground_z +
+          prev_yr_accum_summer_precip_cm_z +
+          (1|site) ,
+        data = beedatafocal, family = binomial),
+  
+  # effects of climate on flowers
+  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal),
+  
+  lm(prev_yr_total_flowers_z ~
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal)
+  
+)
+
+summary(sem4, .progressBar = F)
+plot(sem4)
+
+### (5) SEM: precip 
+sem5<-psem(
+  
+  # effects of climate on sex ratios
+  glmer(sex_binom ~ 
+          prev_yr_accum_summer_precip_cm_z +
+          (1|site) ,
+        data = beedatafocal, family = binomial),
+  
+  # effects of climate on flowers
+  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal),
+  
+  lm(prev_yr_total_flowers_z ~
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal)
+  
+)
+
+summary(sem5, .progressBar = F)
+plot(sem5)
+
+### (6) SEM: precip, floral sum 
+sem6<-psem(
+  
+  # effects of climate on sex ratios
+  glmer(sex_binom ~ 
+          prev_yr_accum_summer_precip_cm_z +
+          prev_yr_total_flowers_z +
+          (1|site) ,
+        data = beedatafocal, family = binomial),
+  
+  # effects of climate on flowers
+  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal),
+  
+  lm(prev_yr_total_flowers_z ~
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal)
+  
+)
+
+summary(sem6, .progressBar = F)
+plot(sem6)
+
+### (7) SEM: precip, floral days 
+sem7<-psem(
+  
+  # effects of climate on sex ratios
+  glmer(sex_binom ~ 
+          prev_yr_accum_summer_precip_cm_z +
+          prev_yr_floral_days_z +
+          (1|site) ,
+        data = beedatafocal, family = binomial),
+  
+  # effects of climate on flowers
+  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal),
+  
+  lm(prev_yr_total_flowers_z ~
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal)
+  
+)
+
+summary(sem7, .progressBar = F)
+plot(sem7)
+
+
+### (8) SEM: floral sum, floral days 
+sem8<-psem(
+  
+  # effects of climate on sex ratios
+  glmer(sex_binom ~
+          prev_yr_floral_days_z +
+          prev_yr_total_flowers_z +
+          (1|site) ,
+        data = beedatafocal, family = binomial),
+  
+  # effects of climate on flowers
+  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal),
+  
+  lm(prev_yr_total_flowers_z ~
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal)
+  
+)
+
+summary(sem8, .progressBar = F)
+plot(sem8)
+
+
+### (9) SEM: floral sum 
+sem9<-psem(
+  
+  # effects of climate on sex ratios
+  glmer(sex_binom ~
+          prev_yr_total_flowers_z +
+          (1|site) ,
+        data = beedatafocal, family = binomial),
+  
+  # effects of climate on flowers
+  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal),
+  
+  lm(prev_yr_total_flowers_z ~
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal)
+  
+)
+
+summary(sem9, .progressBar = F)
+plot(sem9)
+
+### (10) SEM: floral days 
+sem10<-psem(
+  
+  # effects of climate on sex ratios
+  glmer(sex_binom ~
+          prev_yr_floral_days_z +
+          (1|site) ,
+        data = beedatafocal, family = binomial),
+  
+  # effects of climate on flowers
+  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal),
+  
+  lm(prev_yr_total_flowers_z ~
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal)
+  
+)
+
+summary(sem10, .progressBar = F)
+plot(sem10)
+
+
+
+
+
+
+### (11) SEM: snowmelt, precip, floral sum 
+sem11<-psem(
+  
+  # effects of climate on sex ratios
+  glmer(sex_binom ~ prev_yr_doy_bare_ground_z +
+          prev_yr_accum_summer_precip_cm_z +
+          prev_yr_total_flowers_z +
+          (1|site) ,
+        data = beedatafocal, family = binomial),
+  
+  # effects of climate on flowers
+  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal),
+  
+  lm(prev_yr_total_flowers_z ~
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal)
+  
+)
+
+summary(sem11, .progressBar = F)
+plot(sem11)
+
+
+### (12) SEM: snowmelt, precip, floral days 
+sem12<-psem(
+  
+  # effects of climate on sex ratios
+  glmer(sex_binom ~ prev_yr_doy_bare_ground_z +
+          prev_yr_accum_summer_precip_cm_z +
+          prev_yr_floral_days_z +
+          (1|site) ,
+        data = beedatafocal, family = binomial),
+  
+  # effects of climate on flowers
+  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal),
+  
+  lm(prev_yr_total_flowers_z ~
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal)
+  
+)
+
+summary(sem12, .progressBar = F)
+plot(sem12)
+
+### (13) SEM: snowmelt, floral sum, floral days 
+sem13<-psem(
+  
+  # effects of climate on sex ratios
+  glmer(sex_binom ~ prev_yr_doy_bare_ground_z +
+          prev_yr_floral_days_z +
+          prev_yr_total_flowers_z +
+          (1|site) ,
+        data = beedatafocal, family = binomial),
+  
+  # effects of climate on flowers
+  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal),
+  
+  lm(prev_yr_total_flowers_z ~
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal)
+  
+)
+
+summary(sem13, .progressBar = F)
+plot(sem13)
+
+### (14) SEM: precip, floral sum, floral days 
+sem14<-psem(
+  
+  # effects of climate on sex ratios
+  glmer(sex_binom ~ 
+          prev_yr_accum_summer_precip_cm_z +
+          prev_yr_floral_days_z +
+          prev_yr_total_flowers_z +
+          (1|site) ,
+        data = beedatafocal, family = binomial),
+  
+  # effects of climate on flowers
+  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal),
+  
+  lm(prev_yr_total_flowers_z ~
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal)
+  
+)
+
+summary(sem14, .progressBar = F)
+plot(sem14)
+
+
+
+
+
+
+### Get summaries for SEMs #####
+
+df1<-bind_rows(data.frame(summary(semFull, .progressBar = F)$AIC),
+               data.frame(summary(sem1, .progressBar = F)$AIC),
+               data.frame(summary(sem2, .progressBar = F)$AIC),
+               data.frame(summary(sem3, .progressBar = F)$AIC),
+               data.frame(summary(sem4, .progressBar = F)$AIC), 
+               data.frame(summary(sem5, .progressBar = F)$AIC),
+               data.frame(summary(sem6, .progressBar = F)$AIC),
+               data.frame(summary(sem7, .progressBar = F)$AIC),
+               data.frame(summary(sem8, .progressBar = F)$AIC),
+               data.frame(summary(sem9, .progressBar = F)$AIC),
+               data.frame(summary(sem10, .progressBar = F)$AIC),
+               data.frame(summary(sem11, .progressBar = F)$AIC),
+               data.frame(summary(sem12, .progressBar = F)$AIC),
+               data.frame(summary(sem13, .progressBar = F)$AIC),
+               data.frame(summary(sem14, .progressBar = F)$AIC))
+
+df2<-bind_rows(bind_cols(LLchisq(semFull),fisherC(dSep(semFull))),
+               bind_cols(LLchisq(sem1),fisherC(dSep(sem1))),
+               bind_cols(LLchisq(sem2),fisherC(dSep(sem2))),
+               bind_cols(LLchisq(sem3),fisherC(dSep(sem3))),
+               bind_cols(LLchisq(sem4),fisherC(dSep(sem4))),
+               bind_cols(LLchisq(sem5),fisherC(dSep(sem5))),
+               bind_cols(LLchisq(sem6),fisherC(dSep(sem6))),
+               bind_cols(LLchisq(sem7),fisherC(dSep(sem7))),
+               bind_cols(LLchisq(sem8),fisherC(dSep(sem8))),
+               bind_cols(LLchisq(sem9),fisherC(dSep(sem9))),
+               bind_cols(LLchisq(sem10),fisherC(dSep(sem10))),
+               bind_cols(LLchisq(sem11),fisherC(dSep(sem11))),
+               bind_cols(LLchisq(sem12),fisherC(dSep(sem12))),
+               bind_cols(LLchisq(sem13),fisherC(dSep(sem13))),
+               bind_cols(LLchisq(sem14),fisherC(dSep(sem14)))
+)
+names(df2)[c(2,3,5,6)]<-c("df_chisq","p_chisq","df_fisher","p_fisher")
+df2$model<-0:14
+
+df3<-bind_cols(df2[,c(7,1:6)],df1)
+
+#write.csv(df3,"GoodnessOfFit_SEM_Agapostemon_texanus.csv", row.names=FALSE)
+
+coefs_df<-bind_rows(data.frame(coefs(semFull),model=0),
+                    data.frame(coefs(sem1),model=1),
+                    data.frame(coefs(sem2),model=2),
+                    data.frame(coefs(sem3),model=3),
+                    data.frame(coefs(sem4),model=4), 
+                    data.frame(coefs(sem5),model=5),
+                    data.frame(coefs(sem6),model=6),
+                    data.frame(coefs(sem7),model=7),
+                    data.frame(coefs(sem8),model=8),
+                    data.frame(coefs(sem9),model=9),
+                    data.frame(coefs(sem10),model=10),
+                    data.frame(coefs(sem11),model=11),
+                    data.frame(coefs(sem12),model=12),
+                    data.frame(coefs(sem13),model=13),
+                    data.frame(coefs(sem14),model=14))
+
+#write.csv(coefs_df,"coefficients_SEM_Agapostemon_texanus.csv", row.names=FALSE)
+
+
+summary(semFull, .progressBar = F) 
+summary(sem1, .progressBar = F)  
+summary(sem2, .progressBar = F)   
+summary(sem3, .progressBar = F) 
+summary(sem4, .progressBar = F)  
+summary(sem5, .progressBar = F) 
+summary(sem6, .progressBar = F)  
+summary(sem7, .progressBar = F) 
+summary(sem8, .progressBar = F) 
+summary(sem9, .progressBar = F) 
+summary(sem10, .progressBar = F) 
+summary(sem11, .progressBar = F)  
+summary(sem12, .progressBar = F) 
+summary(sem13, .progressBar = F) 
+summary(sem14, .progressBar = F) 
+
+
+### Perform model averaging #####
+
+# sem 4, sem 5, sem 6, sem 11
+coef_list<-list(coef(summary(sem4[[1]]))[, 1], coef(summary(sem5[[1]]))[, 1],coef(summary(sem6[[1]]))[, 1],coef(summary(sem11[[1]]))[, 1])
+weightslist<-c(summary(sem4, .progressBar = F)$AIC$AICc,summary(sem5, .progressBar = F)$AIC$AICc,summary(sem6, .progressBar = F)$AIC$AICc,summary(sem11, .progressBar = F)$AIC$AICc)
+avgEst(coef_list)
+avgEst(coef_list,weights=weightslist)
+
+coef_list2<-list(coef(summary(sem4[[2]]))[, 1], coef(summary(sem5[[2]]))[, 1],coef(summary(sem6[[2]]))[, 1],coef(summary(sem11[[2]]))[, 1])
+weightslist<-c(summary(sem4, .progressBar = F)$AIC$AICc,summary(sem5, .progressBar = F)$AIC$AICc,summary(sem6, .progressBar = F)$AIC$AICc,summary(sem11, .progressBar = F)$AIC$AICc)
+avgEst(coef_list2)
+avgEst(coef_list2,weights=weightslist)
+
+coef_list3<-list(coef(summary(sem4[[3]]))[, 1], coef(summary(sem5[[3]]))[, 1],coef(summary(sem6[[3]]))[, 1],coef(summary(sem11[[3]]))[, 1])
+weightslist<-c(summary(sem4, .progressBar = F)$AIC$AICc,summary(sem5, .progressBar = F)$AIC$AICc,summary(sem6, .progressBar = F)$AIC$AICc,summary(sem11, .progressBar = F)$AIC$AICc)
+avgEst(coef_list3)
+avgEst(coef_list3,weights=weightslist)
+
+coefs(sem4)
+coefs(sem5)
+coefs(sem6)
+coefs(sem11)
+
+## plot the SEM #####
+est<-data.frame(avgEst(coef_list,weights=weightslist))
+est <- tibble::rownames_to_column(est, "Predictor")
+est<-est[-1,]
+est$Response<-"sex_binom"
+names(est)[2]<-"Estimate_MdlAvg"
+
+est2<-data.frame(avgEst(coef_list2,weights=weightslist))
+est2 <- tibble::rownames_to_column(est2, "Predictor")
+est2<-est2[-1,]
+est2$Response<-"prev_yr_floral_days_z"
+names(est2)[2]<-"Estimate_MdlAvg"
+
+est3<-data.frame(avgEst(coef_list3,weights=weightslist))
+est3 <- tibble::rownames_to_column(est3, "Predictor")
+est3<-est3[-1,]
+est3$Response<-"prev_yr_total_flowers_z"
+names(est3)[2]<-"Estimate_MdlAvg"
+
+est_all<-bind_rows(est,est2,est3)
+
+
+coef<-summary(semFull, .progressBar = F)$coef
+coef
+unique(coef$Response)
+unique(coef$Predictor)
+
+coef<-left_join(coef,est_all,by=c("Predictor","Response"))
+
+# remove variables not included in best model
+coef<-coef %>% drop_na(Estimate_MdlAvg)
+
+coef$to<-coef$Response
+coef$from<-coef$Predictor
+
+coef$to[coef$to=="sex_binom"] <- 1
+coef$to[coef$to=="prev_yr_floral_days_z"] <- 2
+coef$to[coef$to=="prev_yr_total_flowers_z"] <- 3
+coef$to[coef$to=="prev_yr_doy_bare_ground_z"] <- 4
+coef$to[coef$to=="prev_yr_accum_summer_precip_cm_z"] <- 5
+
+coef$from[coef$from=="sex_binom"] <- 1
+coef$from[coef$from=="prev_yr_floral_days_z"] <- 2
+coef$from[coef$from=="prev_yr_total_flowers_z"] <- 3
+coef$from[coef$from=="prev_yr_doy_bare_ground_z"] <- 4
+coef$from[coef$from=="prev_yr_accum_summer_precip_cm_z"] <- 5
+
+coef$style<-ifelse(coef$Estimate_MdlAvg>0,"solid","dashed")
+coef$color<-ifelse(coef$P.Value>=0.05,"gray","black")
+
+ndf <-
+  create_node_df(
+    n = 5,
+    fontsize=6,
+    fixedsize=TRUE,
+    color="black",
+        fontcolor="black",     fillcolor="white",     fontname="Baskerville",
+    penwidth=0.5,
+    shape="rectangle",
+    width=0.7,
+    height=0.3,
+    label = c("Female/male \nratio","Floral days \n(prior year)", "Floral sum \n(prior year)","Snowmelt date \n(prior year)","Summer precip. \n(prior year)"))
+
+graph <-
+  create_graph(
+    nodes_df = ndf)
+
+render_graph(graph)
+
+edf <-
+  create_edge_df(
+    from = coef$from,
+    to = coef$to,
+    rel = "leading_to",
+    #label = round(coef$Estimate_MdlAvg,digits=2),
+    penwidth = abs(coef$Estimate_MdlAvg*2),
+    fontsize=5.5,
+    fontcolor="brown3",
+    #color=coef$color,
+    color="black",
+    style=coef$style)
+
+graph <-
+  create_graph(
+    nodes_df = ndf,
+    edges_df = edf)
+
+render_graph(graph)
+
+graph <-
+  graph %>%
+  set_node_position(
+    node = 1, # sex ratio
+    x = 3, y = 1.5) %>%
+  set_node_position(
+    node = 2, # floral days
+    x = 2, y = 1) %>%
+  set_node_position(
+    node = 3, # floral sum
+    x = 2, y = 2) %>%
+  set_node_position(
+    node = 4, # snowmelt date
+    x = 1, y = 2) %>%
+  set_node_position(
+    node = 5, # summer precip
+    x = 1, y = 1)
+
+render_graph(graph)
+
+#graph %>% export_graph(file_name = "SEM_Agapostemon_texanus.pdf")
+
+
+############## (8) Dufourea harveyi ################
+
+beedatafocal<-read.csv("focalbeedata_envdata_RMBLsexratios_2023-03-24.csv")
+# subset to just include focal sites
+sitelist<-c("Almont","Almont Curve","Beaver","CDOT","Copper","Davids","Elko","Gothic","Hill","Little","Lypps","Mexican Cut","Rustlers","Seans","Tuttle","Willey")
+beedatafocal<-filter(beedatafocal, site %in% sitelist) 
+
+beedatafocal<-filter(beedatafocal,genus_species=="Dufourea harveyi")
+
+### (full) SEM: all prior year's climate and floral predictor variables 
+semFull<-psem(
+  
+  # effects of climate on sex ratios
+  glmer(sex_binom ~ prev_yr_doy_bare_ground_z +
+          prev_yr_accum_summer_precip_cm_z +
+          prev_yr_floral_days_z +
+          prev_yr_total_flowers_z +
+          (1|site) ,
+        data = beedatafocal, family = binomial),
+  
+  # effects of climate on flowers
+  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal),
+  
+  lm(prev_yr_total_flowers_z ~
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal)
+  
+)
+
+summary(semFull, .progressBar = F)
+plot(semFull)
+
+
+### (1) SEM: snowmelt 
+sem1<-psem(
+  
+  # effects of climate on sex ratios
+  glmer(sex_binom ~ prev_yr_doy_bare_ground_z +
+          (1|site) ,
+        data = beedatafocal, family = binomial),
+  
+  # effects of climate on flowers
+  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal),
+  
+  lm(prev_yr_total_flowers_z ~
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal)
+  
+)
+
+summary(sem1, .progressBar = F)
+plot(sem1)
+
+
+### (2) SEM: snowmelt, floral sum 
+sem2<-psem(
+  
+  # effects of climate on sex ratios
+  glmer(sex_binom ~ prev_yr_doy_bare_ground_z +
+          prev_yr_total_flowers_z +
+          (1|site) ,
+        data = beedatafocal, family = binomial),
+  
+  # effects of climate on flowers
+  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal),
+  
+  lm(prev_yr_total_flowers_z ~
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal)
+  
+)
+
+summary(sem2, .progressBar = F)
+plot(sem2)
+
+### (3) SEM: snowmelt, floral days 
+sem3<-psem(
+  
+  # effects of climate on sex ratios
+  glmer(sex_binom ~ prev_yr_doy_bare_ground_z +
+          prev_yr_floral_days_z +
+          (1|site) ,
+        data = beedatafocal, family = binomial),
+  
+  # effects of climate on flowers
+  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal),
+  
+  lm(prev_yr_total_flowers_z ~
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal)
+  
+)
+
+summary(sem3, .progressBar = F)
+plot(sem3)
+
+### (4) SEM: snowmelt, precip 
+sem4<-psem(
+  
+  # effects of climate on sex ratios
+  glmer(sex_binom ~ prev_yr_doy_bare_ground_z +
+          prev_yr_accum_summer_precip_cm_z +
+          (1|site) ,
+        data = beedatafocal, family = binomial),
+  
+  # effects of climate on flowers
+  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal),
+  
+  lm(prev_yr_total_flowers_z ~
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal)
+  
+)
+
+summary(sem4, .progressBar = F)
+plot(sem4)
+
+### (5) SEM: precip 
+sem5<-psem(
+  
+  # effects of climate on sex ratios
+  glmer(sex_binom ~ 
+          prev_yr_accum_summer_precip_cm_z +
+          (1|site) ,
+        data = beedatafocal, family = binomial),
+  
+  # effects of climate on flowers
+  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal),
+  
+  lm(prev_yr_total_flowers_z ~
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal)
+  
+)
+
+summary(sem5, .progressBar = F)
+plot(sem5)
+
+### (6) SEM: precip, floral sum 
+sem6<-psem(
+  
+  # effects of climate on sex ratios
+  glmer(sex_binom ~ 
+          prev_yr_accum_summer_precip_cm_z +
+          prev_yr_total_flowers_z +
+          (1|site) ,
+        data = beedatafocal, family = binomial),
+  
+  # effects of climate on flowers
+  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal),
+  
+  lm(prev_yr_total_flowers_z ~
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal)
+  
+)
+
+summary(sem6, .progressBar = F)
+plot(sem6)
+
+### (7) SEM: precip, floral days 
+sem7<-psem(
+  
+  # effects of climate on sex ratios
+  glmer(sex_binom ~ 
+          prev_yr_accum_summer_precip_cm_z +
+          prev_yr_floral_days_z +
+          (1|site) ,
+        data = beedatafocal, family = binomial),
+  
+  # effects of climate on flowers
+  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal),
+  
+  lm(prev_yr_total_flowers_z ~
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal)
+  
+)
+
+summary(sem7, .progressBar = F)
+plot(sem7)
+
+
+### (8) SEM: floral sum, floral days 
+sem8<-psem(
+  
+  # effects of climate on sex ratios
+  glmer(sex_binom ~
+          prev_yr_floral_days_z +
+          prev_yr_total_flowers_z +
+          (1|site) ,
+        data = beedatafocal, family = binomial),
+  
+  # effects of climate on flowers
+  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal),
+  
+  lm(prev_yr_total_flowers_z ~
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal)
+  
+)
+
+summary(sem8, .progressBar = F)
+plot(sem8)
+
+
+### (9) SEM: floral sum 
+sem9<-psem(
+  
+  # effects of climate on sex ratios
+  glmer(sex_binom ~
+          prev_yr_total_flowers_z +
+          (1|site) ,
+        data = beedatafocal, family = binomial),
+  
+  # effects of climate on flowers
+  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal),
+  
+  lm(prev_yr_total_flowers_z ~
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal)
+  
+)
+
+summary(sem9, .progressBar = F)
+plot(sem9)
+
+### (10) SEM: floral days 
+sem10<-psem(
+  
+  # effects of climate on sex ratios
+  glmer(sex_binom ~
+          prev_yr_floral_days_z +
+          (1|site) ,
+        data = beedatafocal, family = binomial),
+  
+  # effects of climate on flowers
+  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal),
+  
+  lm(prev_yr_total_flowers_z ~
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal)
+  
+)
+
+summary(sem10, .progressBar = F)
+plot(sem10)
+
+
+
+
+
+
+### (11) SEM: snowmelt, precip, floral sum 
+sem11<-psem(
+  
+  # effects of climate on sex ratios
+  glmer(sex_binom ~ prev_yr_doy_bare_ground_z +
+          prev_yr_accum_summer_precip_cm_z +
+          prev_yr_total_flowers_z +
+          (1|site) ,
+        data = beedatafocal, family = binomial),
+  
+  # effects of climate on flowers
+  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal),
+  
+  lm(prev_yr_total_flowers_z ~
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal)
+  
+)
+
+summary(sem11, .progressBar = F)
+plot(sem11)
+
+
+### (12) SEM: snowmelt, precip, floral days 
+sem12<-psem(
+  
+  # effects of climate on sex ratios
+  glmer(sex_binom ~ prev_yr_doy_bare_ground_z +
+          prev_yr_accum_summer_precip_cm_z +
+          prev_yr_floral_days_z +
+          (1|site) ,
+        data = beedatafocal, family = binomial),
+  
+  # effects of climate on flowers
+  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal),
+  
+  lm(prev_yr_total_flowers_z ~
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal)
+  
+)
+
+summary(sem12, .progressBar = F)
+plot(sem12)
+
+### (13) SEM: snowmelt, floral sum, floral days 
+sem13<-psem(
+  
+  # effects of climate on sex ratios
+  glmer(sex_binom ~ prev_yr_doy_bare_ground_z +
+          prev_yr_floral_days_z +
+          prev_yr_total_flowers_z +
+          (1|site) ,
+        data = beedatafocal, family = binomial),
+  
+  # effects of climate on flowers
+  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal),
+  
+  lm(prev_yr_total_flowers_z ~
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal)
+  
+)
+
+summary(sem13, .progressBar = F)
+plot(sem13)
+
+### (14) SEM: precip, floral sum, floral days 
+sem14<-psem(
+  
+  # effects of climate on sex ratios
+  glmer(sex_binom ~ 
+          prev_yr_accum_summer_precip_cm_z +
+          prev_yr_floral_days_z +
+          prev_yr_total_flowers_z +
+          (1|site) ,
+        data = beedatafocal, family = binomial),
+  
+  # effects of climate on flowers
+  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal),
+  
+  lm(prev_yr_total_flowers_z ~
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal)
+  
+)
+
+summary(sem14, .progressBar = F)
+plot(sem14)
+
+
+
+
+
+
+### Get summaries for SEMs #####
+
+df1<-bind_rows(data.frame(summary(semFull, .progressBar = F)$AIC),
+               data.frame(summary(sem1, .progressBar = F)$AIC),
+               data.frame(summary(sem2, .progressBar = F)$AIC),
+               data.frame(summary(sem3, .progressBar = F)$AIC),
+               data.frame(summary(sem4, .progressBar = F)$AIC), 
+               data.frame(summary(sem5, .progressBar = F)$AIC),
+               data.frame(summary(sem6, .progressBar = F)$AIC),
+               data.frame(summary(sem7, .progressBar = F)$AIC),
+               data.frame(summary(sem8, .progressBar = F)$AIC),
+               data.frame(summary(sem9, .progressBar = F)$AIC),
+               data.frame(summary(sem10, .progressBar = F)$AIC),
+               data.frame(summary(sem11, .progressBar = F)$AIC),
+               data.frame(summary(sem12, .progressBar = F)$AIC),
+               data.frame(summary(sem13, .progressBar = F)$AIC),
+               data.frame(summary(sem14, .progressBar = F)$AIC))
+
+df2<-bind_rows(bind_cols(LLchisq(semFull),fisherC(dSep(semFull))),
+               bind_cols(LLchisq(sem1),fisherC(dSep(sem1))),
+               bind_cols(LLchisq(sem2),fisherC(dSep(sem2))),
+               bind_cols(LLchisq(sem3),fisherC(dSep(sem3))),
+               bind_cols(LLchisq(sem4),fisherC(dSep(sem4))),
+               bind_cols(LLchisq(sem5),fisherC(dSep(sem5))),
+               bind_cols(LLchisq(sem6),fisherC(dSep(sem6))),
+               bind_cols(LLchisq(sem7),fisherC(dSep(sem7))),
+               bind_cols(LLchisq(sem8),fisherC(dSep(sem8))),
+               bind_cols(LLchisq(sem9),fisherC(dSep(sem9))),
+               bind_cols(LLchisq(sem10),fisherC(dSep(sem10))),
+               bind_cols(LLchisq(sem11),fisherC(dSep(sem11))),
+               bind_cols(LLchisq(sem12),fisherC(dSep(sem12))),
+               bind_cols(LLchisq(sem13),fisherC(dSep(sem13))),
+               bind_cols(LLchisq(sem14),fisherC(dSep(sem14)))
+)
+names(df2)[c(2,3,5,6)]<-c("df_chisq","p_chisq","df_fisher","p_fisher")
+df2$model<-0:14
+
+df3<-bind_cols(df2[,c(7,1:6)],df1)
+
+#write.csv(df3,"GoodnessOfFit_SEM_Dufourea_harveyi.csv", row.names=FALSE)
+
+coefs_df<-bind_rows(data.frame(coefs(semFull),model=0),
+                    data.frame(coefs(sem1),model=1),
+                    data.frame(coefs(sem2),model=2),
+                    data.frame(coefs(sem3),model=3),
+                    data.frame(coefs(sem4),model=4), 
+                    data.frame(coefs(sem5),model=5),
+                    data.frame(coefs(sem6),model=6),
+                    data.frame(coefs(sem7),model=7),
+                    data.frame(coefs(sem8),model=8),
+                    data.frame(coefs(sem9),model=9),
+                    data.frame(coefs(sem10),model=10),
+                    data.frame(coefs(sem11),model=11),
+                    data.frame(coefs(sem12),model=12),
+                    data.frame(coefs(sem13),model=13),
+                    data.frame(coefs(sem14),model=14))
+
+#write.csv(coefs_df,"coefficients_SEM_Dufourea_harveyi.csv", row.names=FALSE)
+
+
+summary(semFull, .progressBar = F) 
+summary(sem1, .progressBar = F)  
+summary(sem2, .progressBar = F)   
+summary(sem3, .progressBar = F) 
+summary(sem4, .progressBar = F)  
+summary(sem5, .progressBar = F) 
+summary(sem6, .progressBar = F)  
+summary(sem7, .progressBar = F) 
+summary(sem8, .progressBar = F) 
+summary(sem9, .progressBar = F) 
+summary(sem10, .progressBar = F) 
+summary(sem11, .progressBar = F)  
+summary(sem12, .progressBar = F) 
+summary(sem13, .progressBar = F) 
+summary(sem14, .progressBar = F) 
+
+
+### Perform model averaging #####
+
+# sem full, sem 1, sem 4, sem 11, sem 12
+coef_list<-list(coef(summary(semFull[[1]]))[, 1], coef(summary(sem1[[1]]))[, 1],coef(summary(sem4[[1]]))[, 1],coef(summary(sem11[[1]]))[, 1],coef(summary(sem12[[1]]))[, 1])
+weightslist<-c(summary(semFull, .progressBar = F)$AIC$AICc,summary(sem1, .progressBar = F)$AIC$AICc,summary(sem4, .progressBar = F)$AIC$AICc,summary(sem11, .progressBar = F)$AIC$AICc,summary(sem12, .progressBar = F)$AIC$AICc)
+avgEst(coef_list)
+avgEst(coef_list,weights=weightslist)
+
+coef_list2<-list(coef(summary(semFull[[2]]))[, 1], coef(summary(sem1[[2]]))[, 1],coef(summary(sem4[[2]]))[, 1],coef(summary(sem11[[2]]))[, 1],coef(summary(sem12[[2]]))[, 1])
+weightslist<-c(summary(semFull, .progressBar = F)$AIC$AICc,summary(sem1, .progressBar = F)$AIC$AICc,summary(sem4, .progressBar = F)$AIC$AICc,summary(sem11, .progressBar = F)$AIC$AICc,summary(sem12, .progressBar = F)$AIC$AICc)
+avgEst(coef_list2)
+avgEst(coef_list2,weights=weightslist)
+
+coef_list3<-list(coef(summary(semFull[[3]]))[, 1], coef(summary(sem1[[3]]))[, 1],coef(summary(sem4[[3]]))[, 1],coef(summary(sem11[[3]]))[, 1],coef(summary(sem12[[3]]))[, 1])
+weightslist<-c(summary(semFull, .progressBar = F)$AIC$AICc,summary(sem1, .progressBar = F)$AIC$AICc,summary(sem4, .progressBar = F)$AIC$AICc,summary(sem11, .progressBar = F)$AIC$AICc,summary(sem12, .progressBar = F)$AIC$AICc)
+avgEst(coef_list3)
+avgEst(coef_list3,weights=weightslist)
+
+coefs(semFull)
+coefs(sem1)
+coefs(sem4)
+coefs(sem11)
+coefs(sem12)
+
+## plot the SEM #####
+est<-data.frame(avgEst(coef_list,weights=weightslist))
+est <- tibble::rownames_to_column(est, "Predictor")
+est<-est[-1,]
+est$Response<-"sex_binom"
+names(est)[2]<-"Estimate_MdlAvg"
+
+est2<-data.frame(avgEst(coef_list2,weights=weightslist))
+est2 <- tibble::rownames_to_column(est2, "Predictor")
+est2<-est2[-1,]
+est2$Response<-"prev_yr_floral_days_z"
+names(est2)[2]<-"Estimate_MdlAvg"
+
+est3<-data.frame(avgEst(coef_list3,weights=weightslist))
+est3 <- tibble::rownames_to_column(est3, "Predictor")
+est3<-est3[-1,]
+est3$Response<-"prev_yr_total_flowers_z"
+names(est3)[2]<-"Estimate_MdlAvg"
+
+est_all<-bind_rows(est,est2,est3)
+
+
+coef<-summary(semFull, .progressBar = F)$coef
+coef
+unique(coef$Response)
+unique(coef$Predictor)
+
+coef<-left_join(coef,est_all,by=c("Predictor","Response"))
+
+# remove variables not included in best model
+coef<-coef %>% drop_na(Estimate_MdlAvg)
+
+coef$to<-coef$Response
+coef$from<-coef$Predictor
+
+coef$to[coef$to=="sex_binom"] <- 1
+coef$to[coef$to=="prev_yr_floral_days_z"] <- 2
+coef$to[coef$to=="prev_yr_total_flowers_z"] <- 3
+coef$to[coef$to=="prev_yr_doy_bare_ground_z"] <- 4
+coef$to[coef$to=="prev_yr_accum_summer_precip_cm_z"] <- 5
+
+coef$from[coef$from=="sex_binom"] <- 1
+coef$from[coef$from=="prev_yr_floral_days_z"] <- 2
+coef$from[coef$from=="prev_yr_total_flowers_z"] <- 3
+coef$from[coef$from=="prev_yr_doy_bare_ground_z"] <- 4
+coef$from[coef$from=="prev_yr_accum_summer_precip_cm_z"] <- 5
+
+coef$style<-ifelse(coef$Estimate_MdlAvg>0,"solid","dashed")
+coef$color<-ifelse(coef$P.Value>=0.05,"gray","black")
+
+ndf <-
+  create_node_df(
+    n = 5,
+    fontsize=6,
+    fixedsize=TRUE,
+    color="black",
+        fontcolor="black",     fillcolor="white",     fontname="Baskerville",
+    penwidth=0.5,
+    shape="rectangle",
+    width=0.7,
+    height=0.3,
+    label = c("Female/male \nratio","Floral days \n(prior year)", "Floral sum \n(prior year)","Snowmelt date \n(prior year)","Summer precip. \n(prior year)"))
+
+graph <-
+  create_graph(
+    nodes_df = ndf)
+
+render_graph(graph)
+
+edf <-
+  create_edge_df(
+    from = coef$from,
+    to = coef$to,
+    rel = "leading_to",
+    #label = round(coef$Estimate_MdlAvg,digits=2),
+    penwidth = abs(coef$Estimate_MdlAvg*2),
+    fontsize=5.5,
+    fontcolor="brown3",
+    #color=coef$color,
+    color="black",
+    style=coef$style)
+
+graph <-
+  create_graph(
+    nodes_df = ndf,
+    edges_df = edf)
+
+render_graph(graph)
+
+graph <-
+  graph %>%
+  set_node_position(
+    node = 1, # sex ratio
+    x = 3, y = 1.5) %>%
+  set_node_position(
+    node = 2, # floral days
+    x = 2, y = 1) %>%
+  set_node_position(
+    node = 3, # floral sum
+    x = 2, y = 2) %>%
+  set_node_position(
+    node = 4, # snowmelt date
+    x = 1, y = 2) %>%
+  set_node_position(
+    node = 5, # summer precip
+    x = 1, y = 1)
+
+render_graph(graph)
+
+#graph %>% export_graph(file_name = "SEM_Dufourea_harveyi.pdf")
+
+
+
+
+
+############## (9) Halictus rubicundus ################
+
+beedatafocal<-read.csv("focalbeedata_envdata_RMBLsexratios_2023-03-24.csv")
+# subset to just include focal sites
+sitelist<-c("Almont","Almont Curve","Beaver","CDOT","Copper","Davids","Elko","Gothic","Hill","Little","Lypps","Mexican Cut","Rustlers","Seans","Tuttle","Willey")
+beedatafocal<-filter(beedatafocal, site %in% sitelist) 
+
+beedatafocal<-filter(beedatafocal,genus_species=="Halictus rubicundus")
+
+### (full) SEM: all prior year's climate and floral predictor variables 
+semFull<-psem(
+  
+  # effects of climate on sex ratios
+  glmer(sex_binom ~ prev_yr_doy_bare_ground_z +
+          prev_yr_accum_summer_precip_cm_z +
+          prev_yr_floral_days_z +
+          prev_yr_total_flowers_z +
+          (1|site) ,
+        data = beedatafocal, family = binomial),
+  
+  # effects of climate on flowers
+  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal),
+  
+  lm(prev_yr_total_flowers_z ~
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal)
+  
+)
+
+summary(semFull, .progressBar = F)
+plot(semFull)
+
+
+### (1) SEM: snowmelt 
+sem1<-psem(
+  
+  # effects of climate on sex ratios
+  glmer(sex_binom ~ prev_yr_doy_bare_ground_z +
+          (1|site) ,
+        data = beedatafocal, family = binomial),
+  
+  # effects of climate on flowers
+  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal),
+  
+  lm(prev_yr_total_flowers_z ~
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal)
+  
+)
+
+summary(sem1, .progressBar = F)
+plot(sem1)
+
+
+### (2) SEM: snowmelt, floral sum 
+sem2<-psem(
+  
+  # effects of climate on sex ratios
+  glmer(sex_binom ~ prev_yr_doy_bare_ground_z +
+          prev_yr_total_flowers_z +
+          (1|site) ,
+        data = beedatafocal, family = binomial),
+  
+  # effects of climate on flowers
+  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal),
+  
+  lm(prev_yr_total_flowers_z ~
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal)
+  
+)
+
+summary(sem2, .progressBar = F)
+plot(sem2)
+
+### (3) SEM: snowmelt, floral days 
+sem3<-psem(
+  
+  # effects of climate on sex ratios
+  glmer(sex_binom ~ prev_yr_doy_bare_ground_z +
+          prev_yr_floral_days_z +
+          (1|site) ,
+        data = beedatafocal, family = binomial),
+  
+  # effects of climate on flowers
+  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal),
+  
+  lm(prev_yr_total_flowers_z ~
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal)
+  
+)
+
+summary(sem3, .progressBar = F)
+plot(sem3)
+
+### (4) SEM: snowmelt, precip 
+sem4<-psem(
+  
+  # effects of climate on sex ratios
+  glmer(sex_binom ~ prev_yr_doy_bare_ground_z +
+          prev_yr_accum_summer_precip_cm_z +
+          (1|site) ,
+        data = beedatafocal, family = binomial),
+  
+  # effects of climate on flowers
+  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal),
+  
+  lm(prev_yr_total_flowers_z ~
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal)
+  
+)
+
+summary(sem4, .progressBar = F)
+plot(sem4)
+
+### (5) SEM: precip 
+sem5<-psem(
+  
+  # effects of climate on sex ratios
+  glmer(sex_binom ~ 
+          prev_yr_accum_summer_precip_cm_z +
+          (1|site) ,
+        data = beedatafocal, family = binomial),
+  
+  # effects of climate on flowers
+  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal),
+  
+  lm(prev_yr_total_flowers_z ~
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal)
+  
+)
+
+summary(sem5, .progressBar = F)
+plot(sem5)
+
+### (6) SEM: precip, floral sum 
+sem6<-psem(
+  
+  # effects of climate on sex ratios
+  glmer(sex_binom ~ 
+          prev_yr_accum_summer_precip_cm_z +
+          prev_yr_total_flowers_z +
+          (1|site) ,
+        data = beedatafocal, family = binomial),
+  
+  # effects of climate on flowers
+  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal),
+  
+  lm(prev_yr_total_flowers_z ~
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal)
+  
+)
+
+summary(sem6, .progressBar = F)
+plot(sem6)
+
+### (7) SEM: precip, floral days 
+sem7<-psem(
+  
+  # effects of climate on sex ratios
+  glmer(sex_binom ~ 
+          prev_yr_accum_summer_precip_cm_z +
+          prev_yr_floral_days_z +
+          (1|site) ,
+        data = beedatafocal, family = binomial),
+  
+  # effects of climate on flowers
+  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal),
+  
+  lm(prev_yr_total_flowers_z ~
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal)
+  
+)
+
+summary(sem7, .progressBar = F)
+plot(sem7)
+
+
+### (8) SEM: floral sum, floral days 
+sem8<-psem(
+  
+  # effects of climate on sex ratios
+  glmer(sex_binom ~
+          prev_yr_floral_days_z +
+          prev_yr_total_flowers_z +
+          (1|site) ,
+        data = beedatafocal, family = binomial),
+  
+  # effects of climate on flowers
+  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal),
+  
+  lm(prev_yr_total_flowers_z ~
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal)
+  
+)
+
+summary(sem8, .progressBar = F)
+plot(sem8)
+
+
+### (9) SEM: floral sum 
+sem9<-psem(
+  
+  # effects of climate on sex ratios
+  glmer(sex_binom ~
+          prev_yr_total_flowers_z +
+          (1|site) ,
+        data = beedatafocal, family = binomial),
+  
+  # effects of climate on flowers
+  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal),
+  
+  lm(prev_yr_total_flowers_z ~
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal)
+  
+)
+
+summary(sem9, .progressBar = F)
+plot(sem9)
+
+### (10) SEM: floral days 
+sem10<-psem(
+  
+  # effects of climate on sex ratios
+  glmer(sex_binom ~
+          prev_yr_floral_days_z +
+          (1|site) ,
+        data = beedatafocal, family = binomial),
+  
+  # effects of climate on flowers
+  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal),
+  
+  lm(prev_yr_total_flowers_z ~
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal)
+  
+)
+
+summary(sem10, .progressBar = F)
+plot(sem10)
+
+
+
+
+
+
+### (11) SEM: snowmelt, precip, floral sum 
+sem11<-psem(
+  
+  # effects of climate on sex ratios
+  glmer(sex_binom ~ prev_yr_doy_bare_ground_z +
+          prev_yr_accum_summer_precip_cm_z +
+          prev_yr_total_flowers_z +
+          (1|site) ,
+        data = beedatafocal, family = binomial),
+  
+  # effects of climate on flowers
+  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal),
+  
+  lm(prev_yr_total_flowers_z ~
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal)
+  
+)
+
+summary(sem11, .progressBar = F)
+plot(sem11)
+
+
+### (12) SEM: snowmelt, precip, floral days 
+sem12<-psem(
+  
+  # effects of climate on sex ratios
+  glmer(sex_binom ~ prev_yr_doy_bare_ground_z +
+          prev_yr_accum_summer_precip_cm_z +
+          prev_yr_floral_days_z +
+          (1|site) ,
+        data = beedatafocal, family = binomial),
+  
+  # effects of climate on flowers
+  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal),
+  
+  lm(prev_yr_total_flowers_z ~
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal)
+  
+)
+
+summary(sem12, .progressBar = F)
+plot(sem12)
+
+### (13) SEM: snowmelt, floral sum, floral days 
+sem13<-psem(
+  
+  # effects of climate on sex ratios
+  glmer(sex_binom ~ prev_yr_doy_bare_ground_z +
+          prev_yr_floral_days_z +
+          prev_yr_total_flowers_z +
+          (1|site) ,
+        data = beedatafocal, family = binomial),
+  
+  # effects of climate on flowers
+  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal),
+  
+  lm(prev_yr_total_flowers_z ~
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal)
+  
+)
+
+summary(sem13, .progressBar = F)
+plot(sem13)
+
+### (14) SEM: precip, floral sum, floral days 
+sem14<-psem(
+  
+  # effects of climate on sex ratios
+  glmer(sex_binom ~ 
+          prev_yr_accum_summer_precip_cm_z +
+          prev_yr_floral_days_z +
+          prev_yr_total_flowers_z +
+          (1|site) ,
+        data = beedatafocal, family = binomial),
+  
+  # effects of climate on flowers
+  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal),
+  
+  lm(prev_yr_total_flowers_z ~
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal)
+  
+)
+
+summary(sem14, .progressBar = F)
+plot(sem14)
+
+
+
+
+
+### Get summaries for SEMs #####
+
+df1<-bind_rows(data.frame(summary(semFull, .progressBar = F)$AIC),
+               data.frame(summary(sem1, .progressBar = F)$AIC),
+               data.frame(summary(sem2, .progressBar = F)$AIC),
+               data.frame(summary(sem3, .progressBar = F)$AIC),
+               data.frame(summary(sem4, .progressBar = F)$AIC), 
+               data.frame(summary(sem5, .progressBar = F)$AIC),
+               data.frame(summary(sem6, .progressBar = F)$AIC),
+               data.frame(summary(sem7, .progressBar = F)$AIC),
+               data.frame(summary(sem8, .progressBar = F)$AIC),
+               data.frame(summary(sem9, .progressBar = F)$AIC),
+               data.frame(summary(sem10, .progressBar = F)$AIC),
+               data.frame(summary(sem11, .progressBar = F)$AIC),
+               data.frame(summary(sem12, .progressBar = F)$AIC),
+               data.frame(summary(sem13, .progressBar = F)$AIC),
+               data.frame(summary(sem14, .progressBar = F)$AIC))
+
+df2<-bind_rows(bind_cols(LLchisq(semFull),fisherC(dSep(semFull))),
+               bind_cols(LLchisq(sem1),fisherC(dSep(sem1))),
+               bind_cols(LLchisq(sem2),fisherC(dSep(sem2))),
+               bind_cols(LLchisq(sem3),fisherC(dSep(sem3))),
+               bind_cols(LLchisq(sem4),fisherC(dSep(sem4))),
+               bind_cols(LLchisq(sem5),fisherC(dSep(sem5))),
+               bind_cols(LLchisq(sem6),fisherC(dSep(sem6))),
+               bind_cols(LLchisq(sem7),fisherC(dSep(sem7))),
+               bind_cols(LLchisq(sem8),fisherC(dSep(sem8))),
+               bind_cols(LLchisq(sem9),fisherC(dSep(sem9))),
+               bind_cols(LLchisq(sem10),fisherC(dSep(sem10))),
+               bind_cols(LLchisq(sem11),fisherC(dSep(sem11))),
+               bind_cols(LLchisq(sem12),fisherC(dSep(sem12))),
+               bind_cols(LLchisq(sem13),fisherC(dSep(sem13))),
+               bind_cols(LLchisq(sem14),fisherC(dSep(sem14)))
+)
+names(df2)[c(2,3,5,6)]<-c("df_chisq","p_chisq","df_fisher","p_fisher")
+df2$model<-0:14
+
+df3<-bind_cols(df2[,c(7,1:6)],df1)
+
+#write.csv(df3,"GoodnessOfFit_SEM_Halictus_rubicundus.csv", row.names=FALSE)
+
+coefs_df<-bind_rows(data.frame(coefs(semFull),model=0),
+                    data.frame(coefs(sem1),model=1),
+                    data.frame(coefs(sem2),model=2),
+                    data.frame(coefs(sem3),model=3),
+                    data.frame(coefs(sem4),model=4), 
+                    data.frame(coefs(sem5),model=5),
+                    data.frame(coefs(sem6),model=6),
+                    data.frame(coefs(sem7),model=7),
+                    data.frame(coefs(sem8),model=8),
+                    data.frame(coefs(sem9),model=9),
+                    data.frame(coefs(sem10),model=10),
+                    data.frame(coefs(sem11),model=11),
+                    data.frame(coefs(sem12),model=12),
+                    data.frame(coefs(sem13),model=13),
+                    data.frame(coefs(sem14),model=14))
+
+#write.csv(coefs_df,"coefficients_SEM_Halictus_rubicundus.csv", row.names=FALSE)
+
+
+summary(semFull, .progressBar = F) 
+summary(sem1, .progressBar = F)  
+summary(sem2, .progressBar = F)   
+summary(sem3, .progressBar = F) 
+summary(sem4, .progressBar = F)  
+summary(sem5, .progressBar = F) 
+summary(sem6, .progressBar = F)  
+summary(sem7, .progressBar = F) 
+summary(sem8, .progressBar = F) 
+summary(sem9, .progressBar = F) 
+summary(sem10, .progressBar = F) 
+summary(sem11, .progressBar = F)  
+summary(sem12, .progressBar = F) 
+summary(sem13, .progressBar = F) 
+summary(sem14, .progressBar = F) 
+
+
+### Perform model averaging #####
+
+# sem full, sem 2, sem 11
+coef_list<-list(coef(summary(semFull[[1]]))[, 1], coef(summary(sem2[[1]]))[, 1],coef(summary(sem11[[1]]))[, 1])
+weightslist<-c(summary(semFull, .progressBar = F)$AIC$AICc,summary(sem2, .progressBar = F)$AIC$AICc,summary(sem11, .progressBar = F)$AIC$AICc)
+avgEst(coef_list)
+avgEst(coef_list,weights=weightslist)
+
+coef_list2<-list(coef(summary(semFull[[2]]))[, 1], coef(summary(sem2[[2]]))[, 1],coef(summary(sem11[[2]]))[, 1])
+weightslist<-c(summary(semFull, .progressBar = F)$AIC$AICc,summary(sem2, .progressBar = F)$AIC$AICc,summary(sem11, .progressBar = F)$AIC$AICc)
+avgEst(coef_list2)
+avgEst(coef_list2,weights=weightslist)
+
+coef_list3<-list(coef(summary(semFull[[3]]))[, 1], coef(summary(sem2[[3]]))[, 1],coef(summary(sem11[[3]]))[, 1])
+weightslist<-c(summary(semFull, .progressBar = F)$AIC$AICc,summary(sem2, .progressBar = F)$AIC$AICc,summary(sem11, .progressBar = F)$AIC$AICc)
+avgEst(coef_list3)
+avgEst(coef_list3,weights=weightslist)
+
+coefs(sem8)
+coefs(sem13)
+coefs(sem14)
+
+## plot the SEM #####
+est<-data.frame(avgEst(coef_list,weights=weightslist))
+est <- tibble::rownames_to_column(est, "Predictor")
+est<-est[-1,]
+est$Response<-"sex_binom"
+names(est)[2]<-"Estimate_MdlAvg"
+
+est2<-data.frame(avgEst(coef_list2,weights=weightslist))
+est2 <- tibble::rownames_to_column(est2, "Predictor")
+est2<-est2[-1,]
+est2$Response<-"prev_yr_floral_days_z"
+names(est2)[2]<-"Estimate_MdlAvg"
+
+est3<-data.frame(avgEst(coef_list3,weights=weightslist))
+est3 <- tibble::rownames_to_column(est3, "Predictor")
+est3<-est3[-1,]
+est3$Response<-"prev_yr_total_flowers_z"
+names(est3)[2]<-"Estimate_MdlAvg"
+
+est_all<-bind_rows(est,est2,est3)
+
+
+coef<-summary(semFull, .progressBar = F)$coef
+coef
+unique(coef$Response)
+unique(coef$Predictor)
+
+coef<-left_join(coef,est_all,by=c("Predictor","Response"))
+
+# remove variables not included in best model
+coef<-coef %>% drop_na(Estimate_MdlAvg)
+
+coef$to<-coef$Response
+coef$from<-coef$Predictor
+
+coef$to[coef$to=="sex_binom"] <- 1
+coef$to[coef$to=="prev_yr_floral_days_z"] <- 2
+coef$to[coef$to=="prev_yr_total_flowers_z"] <- 3
+coef$to[coef$to=="prev_yr_doy_bare_ground_z"] <- 4
+coef$to[coef$to=="prev_yr_accum_summer_precip_cm_z"] <- 5
+
+coef$from[coef$from=="sex_binom"] <- 1
+coef$from[coef$from=="prev_yr_floral_days_z"] <- 2
+coef$from[coef$from=="prev_yr_total_flowers_z"] <- 3
+coef$from[coef$from=="prev_yr_doy_bare_ground_z"] <- 4
+coef$from[coef$from=="prev_yr_accum_summer_precip_cm_z"] <- 5
+
+coef$style<-ifelse(coef$Estimate_MdlAvg>0,"solid","dashed")
+coef$color<-ifelse(coef$P.Value>=0.05,"gray","black")
+
+ndf <-
+  create_node_df(
+    n = 5,
+    fontsize=6,
+    fixedsize=TRUE,
+    color="black",
+        fontcolor="black",     fillcolor="white",     fontname="Baskerville",
+    penwidth=0.5,
+    shape="rectangle",
+    width=0.7,
+    height=0.3,
+    label = c("Female/male \nratio","Floral days \n(prior year)", "Floral sum \n(prior year)","Snowmelt date \n(prior year)","Summer precip. \n(prior year)"))
+
+graph <-
+  create_graph(
+    nodes_df = ndf)
+
+render_graph(graph)
+
+edf <-
+  create_edge_df(
+    from = coef$from,
+    to = coef$to,
+    rel = "leading_to",
+    #label = round(coef$Estimate_MdlAvg,digits=2),
+    penwidth = abs(coef$Estimate_MdlAvg*2),
+    fontsize=5.5,
+    fontcolor="brown3",
+    #color=coef$color,
+    color="black",
+    style=coef$style)
+
+graph <-
+  create_graph(
+    nodes_df = ndf,
+    edges_df = edf)
+
+render_graph(graph)
+
+graph <-
+  graph %>%
+  set_node_position(
+    node = 1, # sex ratio
+    x = 3, y = 1.5) %>%
+  set_node_position(
+    node = 2, # floral days
+    x = 2, y = 1) %>%
+  set_node_position(
+    node = 3, # floral sum
+    x = 2, y = 2) %>%
+  set_node_position(
+    node = 4, # snowmelt date
+    x = 1, y = 2) %>%
+  set_node_position(
+    node = 5, # summer precip
+    x = 1, y = 1)
+
+render_graph(graph)
+
+#graph %>% export_graph(file_name = "SEM_Halictus_rubicundus.pdf")
+
+
+############## (10) Halictus virgatellus ################
+
+beedatafocal<-read.csv("focalbeedata_envdata_RMBLsexratios_2023-03-24.csv")
+# subset to just include focal sites
+sitelist<-c("Almont","Almont Curve","Beaver","CDOT","Copper","Davids","Elko","Gothic","Hill","Little","Lypps","Mexican Cut","Rustlers","Seans","Tuttle","Willey")
+beedatafocal<-filter(beedatafocal, site %in% sitelist) 
+
+beedatafocal<-filter(beedatafocal,genus_species=="Halictus virgatellus")
+
+### (full) SEM: all prior year's climate and floral predictor variables 
+semFull<-psem(
+  
+  # effects of climate on sex ratios
+  glmer(sex_binom ~ prev_yr_doy_bare_ground_z +
+          prev_yr_accum_summer_precip_cm_z +
+          prev_yr_floral_days_z +
+          prev_yr_total_flowers_z +
+          (1|site) ,
+        data = beedatafocal, family = binomial),
+  
+  # effects of climate on flowers
+  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal),
+  
+  lm(prev_yr_total_flowers_z ~
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal)
+  
+)
+
+summary(semFull, .progressBar = F)
+plot(semFull)
+
+
+### (1) SEM: snowmelt 
+sem1<-psem(
+  
+  # effects of climate on sex ratios
+  glmer(sex_binom ~ prev_yr_doy_bare_ground_z +
+          (1|site) ,
+        data = beedatafocal, family = binomial),
+  
+  # effects of climate on flowers
+  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal),
+  
+  lm(prev_yr_total_flowers_z ~
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal)
+  
+)
+
+summary(sem1, .progressBar = F)
+plot(sem1)
+
+
+### (2) SEM: snowmelt, floral sum 
+sem2<-psem(
+  
+  # effects of climate on sex ratios
+  glmer(sex_binom ~ prev_yr_doy_bare_ground_z +
+          prev_yr_total_flowers_z +
+          (1|site) ,
+        data = beedatafocal, family = binomial),
+  
+  # effects of climate on flowers
+  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal),
+  
+  lm(prev_yr_total_flowers_z ~
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal)
+  
+)
+
+summary(sem2, .progressBar = F)
+plot(sem2)
+
+### (3) SEM: snowmelt, floral days 
+sem3<-psem(
+  
+  # effects of climate on sex ratios
+  glmer(sex_binom ~ prev_yr_doy_bare_ground_z +
+          prev_yr_floral_days_z +
+          (1|site) ,
+        data = beedatafocal, family = binomial),
+  
+  # effects of climate on flowers
+  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal),
+  
+  lm(prev_yr_total_flowers_z ~
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal)
+  
+)
+
+summary(sem3, .progressBar = F)
+plot(sem3)
+
+### (4) SEM: snowmelt, precip 
+sem4<-psem(
+  
+  # effects of climate on sex ratios
+  glmer(sex_binom ~ prev_yr_doy_bare_ground_z +
+          prev_yr_accum_summer_precip_cm_z +
+          (1|site) ,
+        data = beedatafocal, family = binomial),
+  
+  # effects of climate on flowers
+  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal),
+  
+  lm(prev_yr_total_flowers_z ~
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal)
+  
+)
+
+summary(sem4, .progressBar = F)
+plot(sem4)
+
+### (5) SEM: precip 
+sem5<-psem(
+  
+  # effects of climate on sex ratios
+  glmer(sex_binom ~ 
+          prev_yr_accum_summer_precip_cm_z +
+          (1|site) ,
+        data = beedatafocal, family = binomial),
+  
+  # effects of climate on flowers
+  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal),
+  
+  lm(prev_yr_total_flowers_z ~
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal)
+  
+)
+
+summary(sem5, .progressBar = F)
+plot(sem5)
+
+### (6) SEM: precip, floral sum 
+sem6<-psem(
+  
+  # effects of climate on sex ratios
+  glmer(sex_binom ~ 
+          prev_yr_accum_summer_precip_cm_z +
+          prev_yr_total_flowers_z +
+          (1|site) ,
+        data = beedatafocal, family = binomial),
+  
+  # effects of climate on flowers
+  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal),
+  
+  lm(prev_yr_total_flowers_z ~
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal)
+  
+)
+
+summary(sem6, .progressBar = F)
+plot(sem6)
+
+### (7) SEM: precip, floral days 
+sem7<-psem(
+  
+  # effects of climate on sex ratios
+  glmer(sex_binom ~ 
+          prev_yr_accum_summer_precip_cm_z +
+          prev_yr_floral_days_z +
+          (1|site) ,
+        data = beedatafocal, family = binomial),
+  
+  # effects of climate on flowers
+  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal),
+  
+  lm(prev_yr_total_flowers_z ~
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal)
+  
+)
+
+summary(sem7, .progressBar = F)
+plot(sem7)
+
+
+### (8) SEM: floral sum, floral days 
+sem8<-psem(
+  
+  # effects of climate on sex ratios
+  glmer(sex_binom ~
+          prev_yr_floral_days_z +
+          prev_yr_total_flowers_z +
+          (1|site) ,
+        data = beedatafocal, family = binomial),
+  
+  # effects of climate on flowers
+  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal),
+  
+  lm(prev_yr_total_flowers_z ~
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal)
+  
+)
+
+summary(sem8, .progressBar = F)
+plot(sem8)
+
+
+### (9) SEM: floral sum 
+sem9<-psem(
+  
+  # effects of climate on sex ratios
+  glmer(sex_binom ~
+          prev_yr_total_flowers_z +
+          (1|site) ,
+        data = beedatafocal, family = binomial),
+  
+  # effects of climate on flowers
+  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal),
+  
+  lm(prev_yr_total_flowers_z ~
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal)
+  
+)
+
+summary(sem9, .progressBar = F)
+plot(sem9)
+
+### (10) SEM: floral days 
+sem10<-psem(
+  
+  # effects of climate on sex ratios
+  glmer(sex_binom ~
+          prev_yr_floral_days_z +
+          (1|site) ,
+        data = beedatafocal, family = binomial),
+  
+  # effects of climate on flowers
+  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal),
+  
+  lm(prev_yr_total_flowers_z ~
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal)
+  
+)
+
+summary(sem10, .progressBar = F)
+plot(sem10)
+
+
+
+
+
+
+### (11) SEM: snowmelt, precip, floral sum 
+sem11<-psem(
+  
+  # effects of climate on sex ratios
+  glmer(sex_binom ~ prev_yr_doy_bare_ground_z +
+          prev_yr_accum_summer_precip_cm_z +
+          prev_yr_total_flowers_z +
+          (1|site) ,
+        data = beedatafocal, family = binomial),
+  
+  # effects of climate on flowers
+  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal),
+  
+  lm(prev_yr_total_flowers_z ~
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal)
+  
+)
+
+summary(sem11, .progressBar = F)
+plot(sem11)
+
+
+### (12) SEM: snowmelt, precip, floral days 
+sem12<-psem(
+  
+  # effects of climate on sex ratios
+  glmer(sex_binom ~ prev_yr_doy_bare_ground_z +
+          prev_yr_accum_summer_precip_cm_z +
+          prev_yr_floral_days_z +
+          (1|site) ,
+        data = beedatafocal, family = binomial),
+  
+  # effects of climate on flowers
+  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal),
+  
+  lm(prev_yr_total_flowers_z ~
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal)
+  
+)
+
+summary(sem12, .progressBar = F)
+plot(sem12)
+
+### (13) SEM: snowmelt, floral sum, floral days 
+sem13<-psem(
+  
+  # effects of climate on sex ratios
+  glmer(sex_binom ~ prev_yr_doy_bare_ground_z +
+          prev_yr_floral_days_z +
+          prev_yr_total_flowers_z +
+          (1|site) ,
+        data = beedatafocal, family = binomial),
+  
+  # effects of climate on flowers
+  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal),
+  
+  lm(prev_yr_total_flowers_z ~
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal)
+  
+)
+
+summary(sem13, .progressBar = F)
+plot(sem13)
+
+### (14) SEM: precip, floral sum, floral days 
+sem14<-psem(
+  
+  # effects of climate on sex ratios
+  glmer(sex_binom ~ 
+          prev_yr_accum_summer_precip_cm_z +
+          prev_yr_floral_days_z +
+          prev_yr_total_flowers_z +
+          (1|site) ,
+        data = beedatafocal, family = binomial),
+  
+  # effects of climate on flowers
+  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal),
+  
+  lm(prev_yr_total_flowers_z ~
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal)
+  
+)
+
+summary(sem14, .progressBar = F)
+plot(sem14)
+
+
+
+
+
+### Get summaries for SEMs #####
+
+df1<-bind_rows(data.frame(summary(semFull, .progressBar = F)$AIC),
+               data.frame(summary(sem1, .progressBar = F)$AIC),
+               data.frame(summary(sem2, .progressBar = F)$AIC),
+               data.frame(summary(sem3, .progressBar = F)$AIC),
+               data.frame(summary(sem4, .progressBar = F)$AIC), 
+               data.frame(summary(sem5, .progressBar = F)$AIC),
+               data.frame(summary(sem6, .progressBar = F)$AIC),
+               data.frame(summary(sem7, .progressBar = F)$AIC),
+               data.frame(summary(sem8, .progressBar = F)$AIC),
+               data.frame(summary(sem9, .progressBar = F)$AIC),
+               data.frame(summary(sem10, .progressBar = F)$AIC),
+               data.frame(summary(sem11, .progressBar = F)$AIC),
+               data.frame(summary(sem12, .progressBar = F)$AIC),
+               data.frame(summary(sem13, .progressBar = F)$AIC),
+               data.frame(summary(sem14, .progressBar = F)$AIC))
+
+df2<-bind_rows(bind_cols(LLchisq(semFull),fisherC(dSep(semFull))),
+               bind_cols(LLchisq(sem1),fisherC(dSep(sem1))),
+               bind_cols(LLchisq(sem2),fisherC(dSep(sem2))),
+               bind_cols(LLchisq(sem3),fisherC(dSep(sem3))),
+               bind_cols(LLchisq(sem4),fisherC(dSep(sem4))),
+               bind_cols(LLchisq(sem5),fisherC(dSep(sem5))),
+               bind_cols(LLchisq(sem6),fisherC(dSep(sem6))),
+               bind_cols(LLchisq(sem7),fisherC(dSep(sem7))),
+               bind_cols(LLchisq(sem8),fisherC(dSep(sem8))),
+               bind_cols(LLchisq(sem9),fisherC(dSep(sem9))),
+               bind_cols(LLchisq(sem10),fisherC(dSep(sem10))),
+               bind_cols(LLchisq(sem11),fisherC(dSep(sem11))),
+               bind_cols(LLchisq(sem12),fisherC(dSep(sem12))),
+               bind_cols(LLchisq(sem13),fisherC(dSep(sem13))),
+               bind_cols(LLchisq(sem14),fisherC(dSep(sem14)))
+)
+names(df2)[c(2,3,5,6)]<-c("df_chisq","p_chisq","df_fisher","p_fisher")
+df2$model<-0:14
+
+df3<-bind_cols(df2[,c(7,1:6)],df1)
+
+#write.csv(df3,"GoodnessOfFit_SEM_Halictus_virgatellus.csv", row.names=FALSE)
+
+coefs_df<-bind_rows(data.frame(coefs(semFull),model=0),
+                    data.frame(coefs(sem1),model=1),
+                    data.frame(coefs(sem2),model=2),
+                    data.frame(coefs(sem3),model=3),
+                    data.frame(coefs(sem4),model=4), 
+                    data.frame(coefs(sem5),model=5),
+                    data.frame(coefs(sem6),model=6),
+                    data.frame(coefs(sem7),model=7),
+                    data.frame(coefs(sem8),model=8),
+                    data.frame(coefs(sem9),model=9),
+                    data.frame(coefs(sem10),model=10),
+                    data.frame(coefs(sem11),model=11),
+                    data.frame(coefs(sem12),model=12),
+                    data.frame(coefs(sem13),model=13),
+                    data.frame(coefs(sem14),model=14))
+
+#write.csv(coefs_df,"coefficients_SEM_Halictus_virgatellus.csv", row.names=FALSE)
+
+
+summary(semFull, .progressBar = F) 
+summary(sem1, .progressBar = F)  
+summary(sem2, .progressBar = F)   
+summary(sem3, .progressBar = F) 
+summary(sem4, .progressBar = F)  
+summary(sem5, .progressBar = F) 
+summary(sem6, .progressBar = F)  
+summary(sem7, .progressBar = F) 
+summary(sem8, .progressBar = F) 
+summary(sem9, .progressBar = F) 
+summary(sem10, .progressBar = F) 
+summary(sem11, .progressBar = F)  
+summary(sem12, .progressBar = F) 
+summary(sem13, .progressBar = F) 
+summary(sem14, .progressBar = F) 
+
+
+### Perform model averaging #####
+
+# sem full, sem 13
+coef_list<-list(coef(summary(semFull[[1]]))[, 1], coef(summary(sem13[[1]]))[, 1])
+weightslist<-c(summary(semFull, .progressBar = F)$AIC$AICc,summary(sem13, .progressBar = F)$AIC$AICc)
+avgEst(coef_list)
+avgEst(coef_list,weights=weightslist)
+
+coef_list2<-list(coef(summary(semFull[[2]]))[, 1], coef(summary(sem13[[2]]))[, 1])
+weightslist<-c(summary(semFull, .progressBar = F)$AIC$AICc,summary(sem13, .progressBar = F)$AIC$AICc)
+avgEst(coef_list2)
+avgEst(coef_list2,weights=weightslist)
+
+coef_list3<-list(coef(summary(semFull[[3]]))[, 1], coef(summary(sem13[[3]]))[, 1])
+weightslist<-c(summary(semFull, .progressBar = F)$AIC$AICc,summary(sem13, .progressBar = F)$AIC$AICc)
+avgEst(coef_list3)
+avgEst(coef_list3,weights=weightslist)
+
+coefs(semFull)
+coefs(sem13)
+
+## plot the SEM #####
+est<-data.frame(avgEst(coef_list,weights=weightslist))
+est <- tibble::rownames_to_column(est, "Predictor")
+est<-est[-1,]
+est$Response<-"sex_binom"
+names(est)[2]<-"Estimate_MdlAvg"
+
+est2<-data.frame(avgEst(coef_list2,weights=weightslist))
+est2 <- tibble::rownames_to_column(est2, "Predictor")
+est2<-est2[-1,]
+est2$Response<-"prev_yr_floral_days_z"
+names(est2)[2]<-"Estimate_MdlAvg"
+
+est3<-data.frame(avgEst(coef_list3,weights=weightslist))
+est3 <- tibble::rownames_to_column(est3, "Predictor")
+est3<-est3[-1,]
+est3$Response<-"prev_yr_total_flowers_z"
+names(est3)[2]<-"Estimate_MdlAvg"
+
+est_all<-bind_rows(est,est2,est3)
+
+
+coef<-summary(semFull, .progressBar = F)$coef
+coef
+unique(coef$Response)
+unique(coef$Predictor)
+
+coef<-left_join(coef,est_all,by=c("Predictor","Response"))
+
+# remove variables not included in best model
+coef<-coef %>% drop_na(Estimate_MdlAvg)
+
+coef$to<-coef$Response
+coef$from<-coef$Predictor
+
+coef$to[coef$to=="sex_binom"] <- 1
+coef$to[coef$to=="prev_yr_floral_days_z"] <- 2
+coef$to[coef$to=="prev_yr_total_flowers_z"] <- 3
+coef$to[coef$to=="prev_yr_doy_bare_ground_z"] <- 4
+coef$to[coef$to=="prev_yr_accum_summer_precip_cm_z"] <- 5
+
+coef$from[coef$from=="sex_binom"] <- 1
+coef$from[coef$from=="prev_yr_floral_days_z"] <- 2
+coef$from[coef$from=="prev_yr_total_flowers_z"] <- 3
+coef$from[coef$from=="prev_yr_doy_bare_ground_z"] <- 4
+coef$from[coef$from=="prev_yr_accum_summer_precip_cm_z"] <- 5
+
+coef$style<-ifelse(coef$Estimate_MdlAvg>0,"solid","dashed")
+coef$color<-ifelse(coef$P.Value>=0.05,"gray","black")
+
+ndf <-
+  create_node_df(
+    n = 5,
+    fontsize=6,
+    fixedsize=TRUE,
+    color="black",
+        fontcolor="black",     fillcolor="white",     fontname="Baskerville",
+    penwidth=0.5,
+    shape="rectangle",
+    width=0.7,
+    height=0.3,
+    label = c("Female/male \nratio","Floral days \n(prior year)", "Floral sum \n(prior year)","Snowmelt date \n(prior year)","Summer precip. \n(prior year)"))
+
+graph <-
+  create_graph(
+    nodes_df = ndf)
+
+render_graph(graph)
+
+edf <-
+  create_edge_df(
+    from = coef$from,
+    to = coef$to,
+    rel = "leading_to",
+    #label = round(coef$Estimate_MdlAvg,digits=2),
+    penwidth = abs(coef$Estimate_MdlAvg*2),
+    fontsize=5.5,
+    fontcolor="brown3",
+    #color=coef$color,
+    color="black",
+    style=coef$style)
+
+graph <-
+  create_graph(
+    nodes_df = ndf,
+    edges_df = edf)
+
+render_graph(graph)
+
+graph <-
+  graph %>%
+  set_node_position(
+    node = 1, # sex ratio
+    x = 3, y = 1.5) %>%
+  set_node_position(
+    node = 2, # floral days
+    x = 2, y = 1) %>%
+  set_node_position(
+    node = 3, # floral sum
+    x = 2, y = 2) %>%
+  set_node_position(
+    node = 4, # snowmelt date
+    x = 1, y = 2) %>%
+  set_node_position(
+    node = 5, # summer precip
+    x = 1, y = 1)
+
+render_graph(graph)
+
+#graph %>% export_graph(file_name = "SEM_Halictus_virgatellus.pdf")
+
+
+############## (11) Hoplitis fulgida ################
+
+beedatafocal<-read.csv("focalbeedata_envdata_RMBLsexratios_2023-03-24.csv")
+# subset to just include focal sites
+sitelist<-c("Almont","Almont Curve","Beaver","CDOT","Copper","Davids","Elko","Gothic","Hill","Little","Lypps","Mexican Cut","Rustlers","Seans","Tuttle","Willey")
+beedatafocal<-filter(beedatafocal, site %in% sitelist) 
+
+beedatafocal<-filter(beedatafocal,genus_species=="Hoplitis fulgida")
+
+### (full) SEM: all prior year's climate and floral predictor variables 
+semFull<-psem(
+  
+  # effects of climate on sex ratios
+  glmer(sex_binom ~ prev_yr_doy_bare_ground_z +
+          prev_yr_accum_summer_precip_cm_z +
+          prev_yr_floral_days_z +
+          prev_yr_total_flowers_z +
+          (1|site) ,
+        data = beedatafocal, family = binomial),
+  
+  # effects of climate on flowers
+  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal),
+  
+  lm(prev_yr_total_flowers_z ~
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal)
+  
+)
+
+summary(semFull, .progressBar = F)
+plot(semFull)
+
+
+### (1) SEM: snowmelt 
+sem1<-psem(
+  
+  # effects of climate on sex ratios
+  glmer(sex_binom ~ prev_yr_doy_bare_ground_z +
+          (1|site) ,
+        data = beedatafocal, family = binomial),
+  
+  # effects of climate on flowers
+  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal),
+  
+  lm(prev_yr_total_flowers_z ~
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal)
+  
+)
+
+summary(sem1, .progressBar = F)
+plot(sem1)
+
+
+### (2) SEM: snowmelt, floral sum 
+sem2<-psem(
+  
+  # effects of climate on sex ratios
+  glmer(sex_binom ~ prev_yr_doy_bare_ground_z +
+          prev_yr_total_flowers_z +
+          (1|site) ,
+        data = beedatafocal, family = binomial),
+  
+  # effects of climate on flowers
+  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal),
+  
+  lm(prev_yr_total_flowers_z ~
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal)
+  
+)
+
+summary(sem2, .progressBar = F)
+plot(sem2)
+
+### (3) SEM: snowmelt, floral days 
+sem3<-psem(
+  
+  # effects of climate on sex ratios
+  glmer(sex_binom ~ prev_yr_doy_bare_ground_z +
+          prev_yr_floral_days_z +
+          (1|site) ,
+        data = beedatafocal, family = binomial),
+  
+  # effects of climate on flowers
+  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal),
+  
+  lm(prev_yr_total_flowers_z ~
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal)
+  
+)
+
+summary(sem3, .progressBar = F)
+plot(sem3)
+
+### (4) SEM: snowmelt, precip 
+sem4<-psem(
+  
+  # effects of climate on sex ratios
+  glmer(sex_binom ~ prev_yr_doy_bare_ground_z +
+          prev_yr_accum_summer_precip_cm_z +
+          (1|site) ,
+        data = beedatafocal, family = binomial),
+  
+  # effects of climate on flowers
+  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal),
+  
+  lm(prev_yr_total_flowers_z ~
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal)
+  
+)
+
+summary(sem4, .progressBar = F)
+plot(sem4)
+
+### (5) SEM: precip 
+sem5<-psem(
+  
+  # effects of climate on sex ratios
+  glmer(sex_binom ~ 
+          prev_yr_accum_summer_precip_cm_z +
+          (1|site) ,
+        data = beedatafocal, family = binomial),
+  
+  # effects of climate on flowers
+  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal),
+  
+  lm(prev_yr_total_flowers_z ~
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal)
+  
+)
+
+summary(sem5, .progressBar = F)
+plot(sem5)
+
+### (6) SEM: precip, floral sum 
+sem6<-psem(
+  
+  # effects of climate on sex ratios
+  glmer(sex_binom ~ 
+          prev_yr_accum_summer_precip_cm_z +
+          prev_yr_total_flowers_z +
+          (1|site) ,
+        data = beedatafocal, family = binomial),
+  
+  # effects of climate on flowers
+  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal),
+  
+  lm(prev_yr_total_flowers_z ~
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal)
+  
+)
+
+summary(sem6, .progressBar = F)
+plot(sem6)
+
+### (7) SEM: precip, floral days 
+sem7<-psem(
+  
+  # effects of climate on sex ratios
+  glmer(sex_binom ~ 
+          prev_yr_accum_summer_precip_cm_z +
+          prev_yr_floral_days_z +
+          (1|site) ,
+        data = beedatafocal, family = binomial),
+  
+  # effects of climate on flowers
+  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal),
+  
+  lm(prev_yr_total_flowers_z ~
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal)
+  
+)
+
+summary(sem7, .progressBar = F)
+plot(sem7)
+
+
+### (8) SEM: floral sum, floral days 
+sem8<-psem(
+  
+  # effects of climate on sex ratios
+  glmer(sex_binom ~
+          prev_yr_floral_days_z +
+          prev_yr_total_flowers_z +
+          (1|site) ,
+        data = beedatafocal, family = binomial),
+  
+  # effects of climate on flowers
+  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal),
+  
+  lm(prev_yr_total_flowers_z ~
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal)
+  
+)
+
+summary(sem8, .progressBar = F)
+plot(sem8)
+
+
+### (9) SEM: floral sum 
+sem9<-psem(
+  
+  # effects of climate on sex ratios
+  glmer(sex_binom ~
+          prev_yr_total_flowers_z +
+          (1|site) ,
+        data = beedatafocal, family = binomial),
+  
+  # effects of climate on flowers
+  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal),
+  
+  lm(prev_yr_total_flowers_z ~
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal)
+  
+)
+
+summary(sem9, .progressBar = F)
+plot(sem9)
+
+### (10) SEM: floral days 
+sem10<-psem(
+  
+  # effects of climate on sex ratios
+  glmer(sex_binom ~
+          prev_yr_floral_days_z +
+          (1|site) ,
+        data = beedatafocal, family = binomial),
+  
+  # effects of climate on flowers
+  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal),
+  
+  lm(prev_yr_total_flowers_z ~
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal)
+  
+)
+
+summary(sem10, .progressBar = F)
+plot(sem10)
+
+
+
+
+
+
+### (11) SEM: snowmelt, precip, floral sum 
+sem11<-psem(
+  
+  # effects of climate on sex ratios
+  glmer(sex_binom ~ prev_yr_doy_bare_ground_z +
+          prev_yr_accum_summer_precip_cm_z +
+          prev_yr_total_flowers_z +
+          (1|site) ,
+        data = beedatafocal, family = binomial),
+  
+  # effects of climate on flowers
+  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal),
+  
+  lm(prev_yr_total_flowers_z ~
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal)
+  
+)
+
+summary(sem11, .progressBar = F)
+plot(sem11)
+
+
+### (12) SEM: snowmelt, precip, floral days 
+sem12<-psem(
+  
+  # effects of climate on sex ratios
+  glmer(sex_binom ~ prev_yr_doy_bare_ground_z +
+          prev_yr_accum_summer_precip_cm_z +
+          prev_yr_floral_days_z +
+          (1|site) ,
+        data = beedatafocal, family = binomial),
+  
+  # effects of climate on flowers
+  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal),
+  
+  lm(prev_yr_total_flowers_z ~
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal)
+  
+)
+
+summary(sem12, .progressBar = F)
+plot(sem12)
+
+### (13) SEM: snowmelt, floral sum, floral days 
+sem13<-psem(
+  
+  # effects of climate on sex ratios
+  glmer(sex_binom ~ prev_yr_doy_bare_ground_z +
+          prev_yr_floral_days_z +
+          prev_yr_total_flowers_z +
+          (1|site) ,
+        data = beedatafocal, family = binomial),
+  
+  # effects of climate on flowers
+  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal),
+  
+  lm(prev_yr_total_flowers_z ~
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal)
+  
+)
+
+summary(sem13, .progressBar = F)
+plot(sem13)
+
+### (14) SEM: precip, floral sum, floral days 
+sem14<-psem(
+  
+  # effects of climate on sex ratios
+  glmer(sex_binom ~ 
+          prev_yr_accum_summer_precip_cm_z +
+          prev_yr_floral_days_z +
+          prev_yr_total_flowers_z +
+          (1|site) ,
+        data = beedatafocal, family = binomial),
+  
+  # effects of climate on flowers
+  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal),
+  
+  lm(prev_yr_total_flowers_z ~
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal)
+  
+)
+
+summary(sem14, .progressBar = F)
+plot(sem14)
+
+
+
+
+
+
+### Get summaries for SEMs #####
+
+df1<-bind_rows(data.frame(summary(semFull, .progressBar = F)$AIC),
+               data.frame(summary(sem1, .progressBar = F)$AIC),
+               data.frame(summary(sem2, .progressBar = F)$AIC),
+               data.frame(summary(sem3, .progressBar = F)$AIC),
+               data.frame(summary(sem4, .progressBar = F)$AIC), 
+               data.frame(summary(sem5, .progressBar = F)$AIC),
+               data.frame(summary(sem6, .progressBar = F)$AIC),
+               data.frame(summary(sem7, .progressBar = F)$AIC),
+               data.frame(summary(sem8, .progressBar = F)$AIC),
+               data.frame(summary(sem9, .progressBar = F)$AIC),
+               data.frame(summary(sem10, .progressBar = F)$AIC),
+               data.frame(summary(sem11, .progressBar = F)$AIC),
+               data.frame(summary(sem12, .progressBar = F)$AIC),
+               data.frame(summary(sem13, .progressBar = F)$AIC),
+               data.frame(summary(sem14, .progressBar = F)$AIC))
+
+df2<-bind_rows(bind_cols(LLchisq(semFull),fisherC(dSep(semFull))),
+               bind_cols(LLchisq(sem1),fisherC(dSep(sem1))),
+               bind_cols(LLchisq(sem2),fisherC(dSep(sem2))),
+               bind_cols(LLchisq(sem3),fisherC(dSep(sem3))),
+               bind_cols(LLchisq(sem4),fisherC(dSep(sem4))),
+               bind_cols(LLchisq(sem5),fisherC(dSep(sem5))),
+               bind_cols(LLchisq(sem6),fisherC(dSep(sem6))),
+               bind_cols(LLchisq(sem7),fisherC(dSep(sem7))),
+               bind_cols(LLchisq(sem8),fisherC(dSep(sem8))),
+               bind_cols(LLchisq(sem9),fisherC(dSep(sem9))),
+               bind_cols(LLchisq(sem10),fisherC(dSep(sem10))),
+               bind_cols(LLchisq(sem11),fisherC(dSep(sem11))),
+               bind_cols(LLchisq(sem12),fisherC(dSep(sem12))),
+               bind_cols(LLchisq(sem13),fisherC(dSep(sem13))),
+               bind_cols(LLchisq(sem14),fisherC(dSep(sem14)))
+)
+names(df2)[c(2,3,5,6)]<-c("df_chisq","p_chisq","df_fisher","p_fisher")
+df2$model<-0:14
+
+df3<-bind_cols(df2[,c(7,1:6)],df1)
+
+#write.csv(df3,"GoodnessOfFit_SEM_Hoplitis_fulgida.csv", row.names=FALSE)
+
+coefs_df<-bind_rows(data.frame(coefs(semFull),model=0),
+                    data.frame(coefs(sem1),model=1),
+                    data.frame(coefs(sem2),model=2),
+                    data.frame(coefs(sem3),model=3),
+                    data.frame(coefs(sem4),model=4), 
+                    data.frame(coefs(sem5),model=5),
+                    data.frame(coefs(sem6),model=6),
+                    data.frame(coefs(sem7),model=7),
+                    data.frame(coefs(sem8),model=8),
+                    data.frame(coefs(sem9),model=9),
+                    data.frame(coefs(sem10),model=10),
+                    data.frame(coefs(sem11),model=11),
+                    data.frame(coefs(sem12),model=12),
+                    data.frame(coefs(sem13),model=13),
+                    data.frame(coefs(sem14),model=14))
+
+#write.csv(coefs_df,"coefficients_SEM_Hoplitis_fulgida.csv", row.names=FALSE)
+
+
+summary(semFull, .progressBar = F) 
+summary(sem1, .progressBar = F)  
+summary(sem2, .progressBar = F)   
+summary(sem3, .progressBar = F) 
+summary(sem4, .progressBar = F)  
+summary(sem5, .progressBar = F) 
+summary(sem6, .progressBar = F)  
+summary(sem7, .progressBar = F) 
+summary(sem8, .progressBar = F) 
+summary(sem9, .progressBar = F) 
+summary(sem10, .progressBar = F) 
+summary(sem11, .progressBar = F)  
+summary(sem12, .progressBar = F) 
+summary(sem13, .progressBar = F) 
+summary(sem14, .progressBar = F) 
+
+
+## No significant predictors of sex ratio
+
+
+
+############## (12) Hoplitis robusta ################
+
+beedatafocal<-read.csv("focalbeedata_envdata_RMBLsexratios_2023-03-24.csv")
+# subset to just include focal sites
+sitelist<-c("Almont","Almont Curve","Beaver","CDOT","Copper","Davids","Elko","Gothic","Hill","Little","Lypps","Mexican Cut","Rustlers","Seans","Tuttle","Willey")
+beedatafocal<-filter(beedatafocal, site %in% sitelist) 
+
+beedatafocal<-filter(beedatafocal,genus_species=="Hoplitis robusta")
+
+### (full) SEM: all prior year's climate and floral predictor variables 
+semFull<-psem(
+  
+  # effects of climate on sex ratios
+  glmer(sex_binom ~ prev_yr_doy_bare_ground_z +
+          prev_yr_accum_summer_precip_cm_z +
+          prev_yr_floral_days_z +
+          prev_yr_total_flowers_z +
+          (1|site) ,
+        data = beedatafocal, family = binomial),
+  
+  # effects of climate on flowers
+  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal),
+  
+  lm(prev_yr_total_flowers_z ~
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal)
+  
+)
+
+summary(semFull, .progressBar = F)
+plot(semFull)
+
+
+### (1) SEM: snowmelt 
+sem1<-psem(
+  
+  # effects of climate on sex ratios
+  glmer(sex_binom ~ prev_yr_doy_bare_ground_z +
+          (1|site) ,
+        data = beedatafocal, family = binomial),
+  
+  # effects of climate on flowers
+  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal),
+  
+  lm(prev_yr_total_flowers_z ~
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal)
+  
+)
+
+summary(sem1, .progressBar = F)
+plot(sem1)
+
+
+### (2) SEM: snowmelt, floral sum 
+sem2<-psem(
+  
+  # effects of climate on sex ratios
+  glmer(sex_binom ~ prev_yr_doy_bare_ground_z +
+          prev_yr_total_flowers_z +
+          (1|site) ,
+        data = beedatafocal, family = binomial),
+  
+  # effects of climate on flowers
+  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal),
+  
+  lm(prev_yr_total_flowers_z ~
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal)
+  
+)
+
+summary(sem2, .progressBar = F)
+plot(sem2)
+
+### (3) SEM: snowmelt, floral days 
+sem3<-psem(
+  
+  # effects of climate on sex ratios
+  glmer(sex_binom ~ prev_yr_doy_bare_ground_z +
+          prev_yr_floral_days_z +
+          (1|site) ,
+        data = beedatafocal, family = binomial),
+  
+  # effects of climate on flowers
+  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal),
+  
+  lm(prev_yr_total_flowers_z ~
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal)
+  
+)
+
+summary(sem3, .progressBar = F)
+plot(sem3)
+
+### (4) SEM: snowmelt, precip 
+sem4<-psem(
+  
+  # effects of climate on sex ratios
+  glmer(sex_binom ~ prev_yr_doy_bare_ground_z +
+          prev_yr_accum_summer_precip_cm_z +
+          (1|site) ,
+        data = beedatafocal, family = binomial),
+  
+  # effects of climate on flowers
+  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal),
+  
+  lm(prev_yr_total_flowers_z ~
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal)
+  
+)
+
+summary(sem4, .progressBar = F)
+plot(sem4)
+
+### (5) SEM: precip 
+sem5<-psem(
+  
+  # effects of climate on sex ratios
+  glmer(sex_binom ~ 
+          prev_yr_accum_summer_precip_cm_z +
+          (1|site) ,
+        data = beedatafocal, family = binomial),
+  
+  # effects of climate on flowers
+  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal),
+  
+  lm(prev_yr_total_flowers_z ~
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal)
+  
+)
+
+summary(sem5, .progressBar = F)
+plot(sem5)
+
+### (6) SEM: precip, floral sum 
+sem6<-psem(
+  
+  # effects of climate on sex ratios
+  glmer(sex_binom ~ 
+          prev_yr_accum_summer_precip_cm_z +
+          prev_yr_total_flowers_z +
+          (1|site) ,
+        data = beedatafocal, family = binomial),
+  
+  # effects of climate on flowers
+  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal),
+  
+  lm(prev_yr_total_flowers_z ~
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal)
+  
+)
+
+summary(sem6, .progressBar = F)
+plot(sem6)
+
+### (7) SEM: precip, floral days 
+sem7<-psem(
+  
+  # effects of climate on sex ratios
+  glmer(sex_binom ~ 
+          prev_yr_accum_summer_precip_cm_z +
+          prev_yr_floral_days_z +
+          (1|site) ,
+        data = beedatafocal, family = binomial),
+  
+  # effects of climate on flowers
+  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal),
+  
+  lm(prev_yr_total_flowers_z ~
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal)
+  
+)
+
+summary(sem7, .progressBar = F)
+plot(sem7)
+
+
+### (8) SEM: floral sum, floral days 
+sem8<-psem(
+  
+  # effects of climate on sex ratios
+  glmer(sex_binom ~
+          prev_yr_floral_days_z +
+          prev_yr_total_flowers_z +
+          (1|site) ,
+        data = beedatafocal, family = binomial),
+  
+  # effects of climate on flowers
+  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal),
+  
+  lm(prev_yr_total_flowers_z ~
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal)
+  
+)
+
+summary(sem8, .progressBar = F)
+plot(sem8)
+
+
+### (9) SEM: floral sum 
+sem9<-psem(
+  
+  # effects of climate on sex ratios
+  glmer(sex_binom ~
+          prev_yr_total_flowers_z +
+          (1|site) ,
+        data = beedatafocal, family = binomial),
+  
+  # effects of climate on flowers
+  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal),
+  
+  lm(prev_yr_total_flowers_z ~
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal)
+  
+)
+
+summary(sem9, .progressBar = F)
+plot(sem9)
+
+### (10) SEM: floral days 
+sem10<-psem(
+  
+  # effects of climate on sex ratios
+  glmer(sex_binom ~
+          prev_yr_floral_days_z +
+          (1|site) ,
+        data = beedatafocal, family = binomial),
+  
+  # effects of climate on flowers
+  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal),
+  
+  lm(prev_yr_total_flowers_z ~
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal)
+  
+)
+
+summary(sem10, .progressBar = F)
+plot(sem10)
+
+
+
+
+
+
+### (11) SEM: snowmelt, precip, floral sum 
+sem11<-psem(
+  
+  # effects of climate on sex ratios
+  glmer(sex_binom ~ prev_yr_doy_bare_ground_z +
+          prev_yr_accum_summer_precip_cm_z +
+          prev_yr_total_flowers_z +
+          (1|site) ,
+        data = beedatafocal, family = binomial),
+  
+  # effects of climate on flowers
+  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal),
+  
+  lm(prev_yr_total_flowers_z ~
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal)
+  
+)
+
+summary(sem11, .progressBar = F)
+plot(sem11)
+
+
+### (12) SEM: snowmelt, precip, floral days 
+sem12<-psem(
+  
+  # effects of climate on sex ratios
+  glmer(sex_binom ~ prev_yr_doy_bare_ground_z +
+          prev_yr_accum_summer_precip_cm_z +
+          prev_yr_floral_days_z +
+          (1|site) ,
+        data = beedatafocal, family = binomial),
+  
+  # effects of climate on flowers
+  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal),
+  
+  lm(prev_yr_total_flowers_z ~
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal)
+  
+)
+
+summary(sem12, .progressBar = F)
+plot(sem12)
+
+### (13) SEM: snowmelt, floral sum, floral days 
+sem13<-psem(
+  
+  # effects of climate on sex ratios
+  glmer(sex_binom ~ prev_yr_doy_bare_ground_z +
+          prev_yr_floral_days_z +
+          prev_yr_total_flowers_z +
+          (1|site) ,
+        data = beedatafocal, family = binomial),
+  
+  # effects of climate on flowers
+  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal),
+  
+  lm(prev_yr_total_flowers_z ~
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal)
+  
+)
+
+summary(sem13, .progressBar = F)
+plot(sem13)
+
+### (14) SEM: precip, floral sum, floral days 
+sem14<-psem(
+  
+  # effects of climate on sex ratios
+  glmer(sex_binom ~ 
+          prev_yr_accum_summer_precip_cm_z +
+          prev_yr_floral_days_z +
+          prev_yr_total_flowers_z +
+          (1|site) ,
+        data = beedatafocal, family = binomial),
+  
+  # effects of climate on flowers
+  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal),
+  
+  lm(prev_yr_total_flowers_z ~
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal)
+  
+)
+
+summary(sem14, .progressBar = F)
+plot(sem14)
+
+
+
+
+
+### Get summaries for SEMs #####
+
+df1<-bind_rows(data.frame(summary(semFull, .progressBar = F)$AIC),
+               data.frame(summary(sem1, .progressBar = F)$AIC),
+               data.frame(summary(sem2, .progressBar = F)$AIC),
+               data.frame(summary(sem3, .progressBar = F)$AIC),
+               data.frame(summary(sem4, .progressBar = F)$AIC), 
+               data.frame(summary(sem5, .progressBar = F)$AIC),
+               data.frame(summary(sem6, .progressBar = F)$AIC),
+               data.frame(summary(sem7, .progressBar = F)$AIC),
+               data.frame(summary(sem8, .progressBar = F)$AIC),
+               data.frame(summary(sem9, .progressBar = F)$AIC),
+               data.frame(summary(sem10, .progressBar = F)$AIC),
+               data.frame(summary(sem11, .progressBar = F)$AIC),
+               data.frame(summary(sem12, .progressBar = F)$AIC),
+               data.frame(summary(sem13, .progressBar = F)$AIC),
+               data.frame(summary(sem14, .progressBar = F)$AIC))
+
+df2<-bind_rows(bind_cols(LLchisq(semFull),fisherC(dSep(semFull))),
+               bind_cols(LLchisq(sem1),fisherC(dSep(sem1))),
+               bind_cols(LLchisq(sem2),fisherC(dSep(sem2))),
+               bind_cols(LLchisq(sem3),fisherC(dSep(sem3))),
+               bind_cols(LLchisq(sem4),fisherC(dSep(sem4))),
+               bind_cols(LLchisq(sem5),fisherC(dSep(sem5))),
+               bind_cols(LLchisq(sem6),fisherC(dSep(sem6))),
+               bind_cols(LLchisq(sem7),fisherC(dSep(sem7))),
+               bind_cols(LLchisq(sem8),fisherC(dSep(sem8))),
+               bind_cols(LLchisq(sem9),fisherC(dSep(sem9))),
+               bind_cols(LLchisq(sem10),fisherC(dSep(sem10))),
+               bind_cols(LLchisq(sem11),fisherC(dSep(sem11))),
+               bind_cols(LLchisq(sem12),fisherC(dSep(sem12))),
+               bind_cols(LLchisq(sem13),fisherC(dSep(sem13))),
+               bind_cols(LLchisq(sem14),fisherC(dSep(sem14)))
+)
+names(df2)[c(2,3,5,6)]<-c("df_chisq","p_chisq","df_fisher","p_fisher")
+df2$model<-0:14
+
+df3<-bind_cols(df2[,c(7,1:6)],df1)
+
+#write.csv(df3,"GoodnessOfFit_SEM_Hoplitis_robusta.csv", row.names=FALSE)
+
+coefs_df<-bind_rows(data.frame(coefs(semFull),model=0),
+                    data.frame(coefs(sem1),model=1),
+                    data.frame(coefs(sem2),model=2),
+                    data.frame(coefs(sem3),model=3),
+                    data.frame(coefs(sem4),model=4), 
+                    data.frame(coefs(sem5),model=5),
+                    data.frame(coefs(sem6),model=6),
+                    data.frame(coefs(sem7),model=7),
+                    data.frame(coefs(sem8),model=8),
+                    data.frame(coefs(sem9),model=9),
+                    data.frame(coefs(sem10),model=10),
+                    data.frame(coefs(sem11),model=11),
+                    data.frame(coefs(sem12),model=12),
+                    data.frame(coefs(sem13),model=13),
+                    data.frame(coefs(sem14),model=14))
+
+#write.csv(coefs_df,"coefficients_SEM_Hoplitis_robusta.csv", row.names=FALSE)
+
+
+summary(semFull, .progressBar = F) 
+summary(sem1, .progressBar = F)  
+summary(sem2, .progressBar = F)   
+summary(sem3, .progressBar = F) 
+summary(sem4, .progressBar = F)  
+summary(sem5, .progressBar = F) 
+summary(sem6, .progressBar = F)  
+summary(sem7, .progressBar = F) 
+summary(sem8, .progressBar = F) 
+summary(sem9, .progressBar = F) 
+summary(sem10, .progressBar = F) 
+summary(sem11, .progressBar = F)  
+summary(sem12, .progressBar = F) 
+summary(sem13, .progressBar = F) 
+summary(sem14, .progressBar = F) 
+
+
+### Perform model averaging ##### 
+
+# sem 6, sem 11
+coef_list<-list(coef(summary(sem6[[1]]))[, 1], coef(summary(sem11[[1]]))[, 1])
+weightslist<-c(summary(sem6, .progressBar = F)$AIC$AICc,summary(sem11, .progressBar = F)$AIC$AICc)
+avgEst(coef_list)
+avgEst(coef_list,weights=weightslist)
+
+coef_list2<-list(coef(summary(sem6[[2]]))[, 1], coef(summary(sem11[[2]]))[, 1])
+weightslist<-c(summary(sem6, .progressBar = F)$AIC$AICc,summary(sem11, .progressBar = F)$AIC$AICc)
+avgEst(coef_list2)
+avgEst(coef_list2,weights=weightslist)
+
+coef_list3<-list(coef(summary(sem6[[3]]))[, 1], coef(summary(sem11[[3]]))[, 1])
+weightslist<-c(summary(sem6, .progressBar = F)$AIC$AICc,summary(sem11, .progressBar = F)$AIC$AICc)
+avgEst(coef_list3)
+avgEst(coef_list3,weights=weightslist)
+
+coefs(sem6)
+coefs(sem11)
+
+## plot the SEM #####
+est<-data.frame(avgEst(coef_list,weights=weightslist))
+est <- tibble::rownames_to_column(est, "Predictor")
+est<-est[-1,]
+est$Response<-"sex_binom"
+names(est)[2]<-"Estimate_MdlAvg"
+
+est2<-data.frame(avgEst(coef_list2,weights=weightslist))
+est2 <- tibble::rownames_to_column(est2, "Predictor")
+est2<-est2[-1,]
+est2$Response<-"prev_yr_floral_days_z"
+names(est2)[2]<-"Estimate_MdlAvg"
+
+est3<-data.frame(avgEst(coef_list3,weights=weightslist))
+est3 <- tibble::rownames_to_column(est3, "Predictor")
+est3<-est3[-1,]
+est3$Response<-"prev_yr_total_flowers_z"
+names(est3)[2]<-"Estimate_MdlAvg"
+
+est_all<-bind_rows(est,est2,est3)
+
+
+coef<-summary(semFull, .progressBar = F)$coef
+coef
+unique(coef$Response)
+unique(coef$Predictor)
+
+coef<-left_join(coef,est_all,by=c("Predictor","Response"))
+
+# remove variables not included in best model
+coef<-coef %>% drop_na(Estimate_MdlAvg)
+
+coef$to<-coef$Response
+coef$from<-coef$Predictor
+
+coef$to[coef$to=="sex_binom"] <- 1
+coef$to[coef$to=="prev_yr_floral_days_z"] <- 2
+coef$to[coef$to=="prev_yr_total_flowers_z"] <- 3
+coef$to[coef$to=="prev_yr_doy_bare_ground_z"] <- 4
+coef$to[coef$to=="prev_yr_accum_summer_precip_cm_z"] <- 5
+
+coef$from[coef$from=="sex_binom"] <- 1
+coef$from[coef$from=="prev_yr_floral_days_z"] <- 2
+coef$from[coef$from=="prev_yr_total_flowers_z"] <- 3
+coef$from[coef$from=="prev_yr_doy_bare_ground_z"] <- 4
+coef$from[coef$from=="prev_yr_accum_summer_precip_cm_z"] <- 5
+
+coef$style<-ifelse(coef$Estimate_MdlAvg>0,"solid","dashed")
+coef$color<-ifelse(coef$P.Value>=0.05,"gray","black")
+
+ndf <-
+  create_node_df(
+    n = 5,
+    fontsize=6,
+    fixedsize=TRUE,
+    color="black",
+        fontcolor="black",     fillcolor="white",     fontname="Baskerville",
+    penwidth=0.5,
+    shape="rectangle",
+    width=0.7,
+    height=0.3,
+    label = c("Female/male \nratio","Floral days \n(prior year)", "Floral sum \n(prior year)","Snowmelt date \n(prior year)","Summer precip. \n(prior year)"))
+
+graph <-
+  create_graph(
+    nodes_df = ndf)
+
+render_graph(graph)
+
+edf <-
+  create_edge_df(
+    from = coef$from,
+    to = coef$to,
+    rel = "leading_to",
+    #label = round(coef$Estimate_MdlAvg,digits=2),
+    penwidth = abs(coef$Estimate_MdlAvg*2),
+    fontsize=5.5,
+    fontcolor="brown3",
+    #color=coef$color,
+    color="black",
+    style=coef$style)
+
+graph <-
+  create_graph(
+    nodes_df = ndf,
+    edges_df = edf)
+
+render_graph(graph)
+
+graph <-
+  graph %>%
+  set_node_position(
+    node = 1, # sex ratio
+    x = 3, y = 1.5) %>%
+  set_node_position(
+    node = 2, # floral days
+    x = 2, y = 1) %>%
+  set_node_position(
+    node = 3, # floral sum
+    x = 2, y = 2) %>%
+  set_node_position(
+    node = 4, # snowmelt date
+    x = 1, y = 2) %>%
+  set_node_position(
+    node = 5, # summer precip
+    x = 1, y = 1)
+
+render_graph(graph)
+
+#graph %>% export_graph(file_name = "SEM_Hoplitis_robusta.pdf")
+
+
+
+############## (13) Osmia albolateralis ################
+
+beedatafocal<-read.csv("focalbeedata_envdata_RMBLsexratios_2023-03-24.csv")
+# subset to just include focal sites
+sitelist<-c("Almont","Almont Curve","Beaver","CDOT","Copper","Davids","Elko","Gothic","Hill","Little","Lypps","Mexican Cut","Rustlers","Seans","Tuttle","Willey")
+beedatafocal<-filter(beedatafocal, site %in% sitelist) 
+
+beedatafocal<-filter(beedatafocal,genus_species=="Osmia albolateralis")
+
+### (full) SEM: all prior year's climate and floral predictor variables 
+semFull<-psem(
+  
+  # effects of climate on sex ratios
+  glmer(sex_binom ~ prev_yr_doy_bare_ground_z +
+          prev_yr_accum_summer_precip_cm_z +
+          prev_yr_floral_days_z +
+          prev_yr_total_flowers_z +
+          (1|site) ,
+        data = beedatafocal, family = binomial),
+  
+  # effects of climate on flowers
+  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal),
+  
+  lm(prev_yr_total_flowers_z ~
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal)
+  
+)
+
+summary(semFull, .progressBar = F)
+plot(semFull)
+
+
+### (1) SEM: snowmelt 
+sem1<-psem(
+  
+  # effects of climate on sex ratios
+  glmer(sex_binom ~ prev_yr_doy_bare_ground_z +
+          (1|site) ,
+        data = beedatafocal, family = binomial),
+  
+  # effects of climate on flowers
+  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal),
+  
+  lm(prev_yr_total_flowers_z ~
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal)
+  
+)
+
+summary(sem1, .progressBar = F)
+plot(sem1)
+
+
+### (2) SEM: snowmelt, floral sum 
+sem2<-psem(
+  
+  # effects of climate on sex ratios
+  glmer(sex_binom ~ prev_yr_doy_bare_ground_z +
+          prev_yr_total_flowers_z +
+          (1|site) ,
+        data = beedatafocal, family = binomial),
+  
+  # effects of climate on flowers
+  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal),
+  
+  lm(prev_yr_total_flowers_z ~
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal)
+  
+)
+
+summary(sem2, .progressBar = F)
+plot(sem2)
+
+### (3) SEM: snowmelt, floral days 
+sem3<-psem(
+  
+  # effects of climate on sex ratios
+  glmer(sex_binom ~ prev_yr_doy_bare_ground_z +
+          prev_yr_floral_days_z +
+          (1|site) ,
+        data = beedatafocal, family = binomial),
+  
+  # effects of climate on flowers
+  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal),
+  
+  lm(prev_yr_total_flowers_z ~
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal)
+  
+)
+
+summary(sem3, .progressBar = F)
+plot(sem3)
+
+### (4) SEM: snowmelt, precip 
+sem4<-psem(
+  
+  # effects of climate on sex ratios
+  glmer(sex_binom ~ prev_yr_doy_bare_ground_z +
+          prev_yr_accum_summer_precip_cm_z +
+          (1|site) ,
+        data = beedatafocal, family = binomial),
+  
+  # effects of climate on flowers
+  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal),
+  
+  lm(prev_yr_total_flowers_z ~
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal)
+  
+)
+
+summary(sem4, .progressBar = F)
+plot(sem4)
+
+### (5) SEM: precip 
+sem5<-psem(
+  
+  # effects of climate on sex ratios
+  glmer(sex_binom ~ 
+          prev_yr_accum_summer_precip_cm_z +
+          (1|site) ,
+        data = beedatafocal, family = binomial),
+  
+  # effects of climate on flowers
+  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal),
+  
+  lm(prev_yr_total_flowers_z ~
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal)
+  
+)
+
+summary(sem5, .progressBar = F)
+plot(sem5)
+
+### (6) SEM: precip, floral sum 
+sem6<-psem(
+  
+  # effects of climate on sex ratios
+  glmer(sex_binom ~ 
+          prev_yr_accum_summer_precip_cm_z +
+          prev_yr_total_flowers_z +
+          (1|site) ,
+        data = beedatafocal, family = binomial),
+  
+  # effects of climate on flowers
+  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal),
+  
+  lm(prev_yr_total_flowers_z ~
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal)
+  
+)
+
+summary(sem6, .progressBar = F)
+plot(sem6)
+
+### (7) SEM: precip, floral days 
+sem7<-psem(
+  
+  # effects of climate on sex ratios
+  glmer(sex_binom ~ 
+          prev_yr_accum_summer_precip_cm_z +
+          prev_yr_floral_days_z +
+          (1|site) ,
+        data = beedatafocal, family = binomial),
+  
+  # effects of climate on flowers
+  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal),
+  
+  lm(prev_yr_total_flowers_z ~
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal)
+  
+)
+
+summary(sem7, .progressBar = F)
+plot(sem7)
+
+
+### (8) SEM: floral sum, floral days 
+sem8<-psem(
+  
+  # effects of climate on sex ratios
+  glmer(sex_binom ~
+          prev_yr_floral_days_z +
+          prev_yr_total_flowers_z +
+          (1|site) ,
+        data = beedatafocal, family = binomial),
+  
+  # effects of climate on flowers
+  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal),
+  
+  lm(prev_yr_total_flowers_z ~
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal)
+  
+)
+
+summary(sem8, .progressBar = F)
+plot(sem8)
+
+
+### (9) SEM: floral sum 
+sem9<-psem(
+  
+  # effects of climate on sex ratios
+  glmer(sex_binom ~
+          prev_yr_total_flowers_z +
+          (1|site) ,
+        data = beedatafocal, family = binomial),
+  
+  # effects of climate on flowers
+  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal),
+  
+  lm(prev_yr_total_flowers_z ~
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal)
+  
+)
+
+summary(sem9, .progressBar = F)
+plot(sem9)
+
+### (10) SEM: floral days 
+sem10<-psem(
+  
+  # effects of climate on sex ratios
+  glmer(sex_binom ~
+          prev_yr_floral_days_z +
+          (1|site) ,
+        data = beedatafocal, family = binomial),
+  
+  # effects of climate on flowers
+  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal),
+  
+  lm(prev_yr_total_flowers_z ~
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal)
+  
+)
+
+summary(sem10, .progressBar = F)
+plot(sem10)
+
+
+
+
+
+
+### (11) SEM: snowmelt, precip, floral sum 
+sem11<-psem(
+  
+  # effects of climate on sex ratios
+  glmer(sex_binom ~ prev_yr_doy_bare_ground_z +
+          prev_yr_accum_summer_precip_cm_z +
+          prev_yr_total_flowers_z +
+          (1|site) ,
+        data = beedatafocal, family = binomial),
+  
+  # effects of climate on flowers
+  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal),
+  
+  lm(prev_yr_total_flowers_z ~
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal)
+  
+)
+
+summary(sem11, .progressBar = F)
+plot(sem11)
+
+
+### (12) SEM: snowmelt, precip, floral days 
+sem12<-psem(
+  
+  # effects of climate on sex ratios
+  glmer(sex_binom ~ prev_yr_doy_bare_ground_z +
+          prev_yr_accum_summer_precip_cm_z +
+          prev_yr_floral_days_z +
+          (1|site) ,
+        data = beedatafocal, family = binomial),
+  
+  # effects of climate on flowers
+  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal),
+  
+  lm(prev_yr_total_flowers_z ~
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal)
+  
+)
+
+summary(sem12, .progressBar = F)
+plot(sem12)
+
+### (13) SEM: snowmelt, floral sum, floral days 
+sem13<-psem(
+  
+  # effects of climate on sex ratios
+  glmer(sex_binom ~ prev_yr_doy_bare_ground_z +
+          prev_yr_floral_days_z +
+          prev_yr_total_flowers_z +
+          (1|site) ,
+        data = beedatafocal, family = binomial),
+  
+  # effects of climate on flowers
+  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal),
+  
+  lm(prev_yr_total_flowers_z ~
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal)
+  
+)
+
+summary(sem13, .progressBar = F)
+plot(sem13)
+
+### (14) SEM: precip, floral sum, floral days 
+sem14<-psem(
+  
+  # effects of climate on sex ratios
+  glmer(sex_binom ~ 
+          prev_yr_accum_summer_precip_cm_z +
+          prev_yr_floral_days_z +
+          prev_yr_total_flowers_z +
+          (1|site) ,
+        data = beedatafocal, family = binomial),
+  
+  # effects of climate on flowers
+  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal),
+  
+  lm(prev_yr_total_flowers_z ~
+       prev_yr_doy_bare_ground_z +
+       prev_yr_accum_summer_precip_cm_z,
+     data = beedatafocal)
+  
+)
+
+summary(sem14, .progressBar = F)
+plot(sem14)
+
+
+
+
+
+
+### Get summaries for SEMs #####
+
+df1<-bind_rows(data.frame(summary(semFull, .progressBar = F)$AIC),
+               data.frame(summary(sem1, .progressBar = F)$AIC),
+               data.frame(summary(sem2, .progressBar = F)$AIC),
+               data.frame(summary(sem3, .progressBar = F)$AIC),
+               data.frame(summary(sem4, .progressBar = F)$AIC), 
+               data.frame(summary(sem5, .progressBar = F)$AIC),
+               data.frame(summary(sem6, .progressBar = F)$AIC),
+               data.frame(summary(sem7, .progressBar = F)$AIC),
+               data.frame(summary(sem8, .progressBar = F)$AIC),
+               data.frame(summary(sem9, .progressBar = F)$AIC),
+               data.frame(summary(sem10, .progressBar = F)$AIC),
+               data.frame(summary(sem11, .progressBar = F)$AIC),
+               data.frame(summary(sem12, .progressBar = F)$AIC),
+               data.frame(summary(sem13, .progressBar = F)$AIC),
+               data.frame(summary(sem14, .progressBar = F)$AIC))
+
+df2<-bind_rows(bind_cols(LLchisq(semFull),fisherC(dSep(semFull))),
+               bind_cols(LLchisq(sem1),fisherC(dSep(sem1))),
+               bind_cols(LLchisq(sem2),fisherC(dSep(sem2))),
+               bind_cols(LLchisq(sem3),fisherC(dSep(sem3))),
+               bind_cols(LLchisq(sem4),fisherC(dSep(sem4))),
+               bind_cols(LLchisq(sem5),fisherC(dSep(sem5))),
+               bind_cols(LLchisq(sem6),fisherC(dSep(sem6))),
+               bind_cols(LLchisq(sem7),fisherC(dSep(sem7))),
+               bind_cols(LLchisq(sem8),fisherC(dSep(sem8))),
+               bind_cols(LLchisq(sem9),fisherC(dSep(sem9))),
+               bind_cols(LLchisq(sem10),fisherC(dSep(sem10))),
+               bind_cols(LLchisq(sem11),fisherC(dSep(sem11))),
+               bind_cols(LLchisq(sem12),fisherC(dSep(sem12))),
+               bind_cols(LLchisq(sem13),fisherC(dSep(sem13))),
+               bind_cols(LLchisq(sem14),fisherC(dSep(sem14)))
+)
+names(df2)[c(2,3,5,6)]<-c("df_chisq","p_chisq","df_fisher","p_fisher")
+df2$model<-0:14
+
+df3<-bind_cols(df2[,c(7,1:6)],df1)
+
+#write.csv(df3,"GoodnessOfFit_SEM_Osmia_albolateralis.csv", row.names=FALSE)
+
+coefs_df<-bind_rows(data.frame(coefs(semFull),model=0),
+                    data.frame(coefs(sem1),model=1),
+                    data.frame(coefs(sem2),model=2),
+                    data.frame(coefs(sem3),model=3),
+                    data.frame(coefs(sem4),model=4), 
+                    data.frame(coefs(sem5),model=5),
+                    data.frame(coefs(sem6),model=6),
+                    data.frame(coefs(sem7),model=7),
+                    data.frame(coefs(sem8),model=8),
+                    data.frame(coefs(sem9),model=9),
+                    data.frame(coefs(sem10),model=10),
+                    data.frame(coefs(sem11),model=11),
+                    data.frame(coefs(sem12),model=12),
+                    data.frame(coefs(sem13),model=13),
+                    data.frame(coefs(sem14),model=14))
+
+#write.csv(coefs_df,"coefficients_SEM_Osmia_albolateralis.csv", row.names=FALSE)
+
+
+summary(semFull, .progressBar = F) 
+summary(sem1, .progressBar = F)  
+summary(sem2, .progressBar = F)   
+summary(sem3, .progressBar = F) 
+summary(sem4, .progressBar = F)  
+summary(sem5, .progressBar = F) 
+summary(sem6, .progressBar = F)  
+summary(sem7, .progressBar = F) 
+summary(sem8, .progressBar = F) 
+summary(sem9, .progressBar = F) 
+summary(sem10, .progressBar = F) 
+summary(sem11, .progressBar = F)  
+summary(sem12, .progressBar = F) 
+summary(sem13, .progressBar = F) 
+summary(sem14, .progressBar = F) 
+
+
+## No significant predictors of sex ratio
