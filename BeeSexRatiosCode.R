@@ -21,6 +21,8 @@ library(tidyverse)
 library(semEff)
 library(DiagrammeRsvg)
 library(rsvg)
+library(nlme)
+library(effects)
 
 
 # set wd
@@ -30,6 +32,22 @@ setwd("~/Documents/*RMBLPhenology/Projects/BeeSexRatios/Analyses")
 
 # read in bee and climate data
 beedata<-read.csv("bees_2022-09-06.csv")
+
+# read in additional 2018 data and join to data frame
+data2018<-read.csv("FINAL_DEC_25_2022_RMBL_2018_Bees_Kristin_IDs_Data_to_upload.csv")
+data2018$unique_id<-as.character(data2018$unique_id)
+names(data2018)[3:8]<-c("family_18","genus_18","genus_species_18","sex_18","id_by_18","notes_18")
+
+# combine data frames
+beedata<-left_join(beedata,data2018,by=c("unique_id","site"))
+beedata<-beedata %>% mutate(family=ifelse(is.na(family_18)==FALSE,family_18,family),
+                            genus=ifelse(is.na(genus_18)==FALSE,genus_18,genus),
+                            genus_species=ifelse(is.na(genus_species_18)==FALSE,genus_species_18,genus_species),
+                            sex=ifelse(is.na(sex_18)==FALSE,sex_18,sex),
+                            id_by=ifelse(is.na(id_by_18)==FALSE,id_by_18,id_by),
+                            notes=ifelse(is.na(notes_18)==FALSE,notes_18,notes)
+                            )
+beedata<-beedata[,-c(24:29)]
 
 # read in trait data
 traits<-read.csv("traits_stemkovski_2019_10_15.csv")
@@ -124,6 +142,8 @@ beedatafocal$site[beedatafocal$site == "Almont curve"] <- "Almont Curve"
 beedatafocal$site[beedatafocal$site == "Kettle ponds"] <- "Kettle Ponds"
 beedatafocal$site[beedatafocal$site == "snodgrass"] <- "Snodgrass"
 unique(beedatafocal$site)
+
+#write.csv(beedatafocal,"BeeDataFocalSpecies_2023-03-30.csv",row.names=FALSE)
 
 ##### Look at correlation between billy's precip data and interpolated precip data #####
 climate_billy<-read.csv("weather_summaries_billybarr_forsexratios.csv")
@@ -242,12 +262,35 @@ beedatafocal$prev_yr_snow_free_days_z<-as.numeric(scale(beedatafocal$prev_yr_sno
 beedatafocal$prev_yr_fall_freezing_dd_presnow_z<-as.numeric(scale(beedatafocal$prev_yr_fall_freezing_dd_presnow, center = TRUE, scale = TRUE))
 beedatafocal$winter_temp_mean_z<-as.numeric(scale(beedatafocal$winter_temp_mean, center = TRUE, scale = TRUE))
 
-# add floral data
-flowers<-read.csv("focalbeedata_envdata_RMBLsexratios_2022-11-07.csv")
-beedatafocal2<-left_join(beedatafocal,flowers[,c(2,50:65)],by=c("unique_id_year"))
+##### Adding floral data: Inouye data #####
+
+# read in floral data
+flor<-read.csv("floral_data_annual_summaries_forsexratios.csv")
+# add current year's floral data to be dataset
+beedatafocal<-left_join(beedatafocal,flor,by="year")
+# add prior year's floral data to bee dataset
+flor_prior<-flor
+flor_prior$year<-flor_prior$year+1
+names(flor_prior)[2:5]<-c("prev_yr_total_flowers", "prev_yr_total_flowers_80", "prev_yr_floral_days", "prev_yr_floral_days_80")
+beedatafocal<-left_join(beedatafocal,flor_prior, by="year")
+
+# z-score floral variables
+beedatafocal$total_flowers_z<-as.numeric(scale(beedatafocal$total_flowers, center = TRUE, scale = TRUE))
+beedatafocal$prev_yr_total_flowers_z<-as.numeric(scale(beedatafocal$prev_yr_total_flowers, center = TRUE, scale = TRUE))
+
+beedatafocal$floral_days_z<-as.numeric(scale(beedatafocal$floral_days, center = TRUE, scale = TRUE))
+beedatafocal$prev_yr_floral_days_z<-as.numeric(scale(beedatafocal$prev_yr_floral_days, center = TRUE, scale = TRUE))
+
+beedatafocal$total_flowers_80_z<-as.numeric(scale(beedatafocal$total_flowers_80, center = TRUE, scale = TRUE))
+beedatafocal$prev_yr_total_flowers_80_z<-as.numeric(scale(beedatafocal$prev_yr_total_flowers_80, center = TRUE, scale = TRUE))
+
+beedatafocal$floral_days_80_z<-as.numeric(scale(beedatafocal$floral_days_80, center = TRUE, scale = TRUE))
+beedatafocal$prev_yr_floral_days_80_z<-as.numeric(scale(beedatafocal$prev_yr_floral_days_80, center = TRUE, scale = TRUE))
 
 # create csv file
-#write.csv(beedatafocal2,"focalbeedata_envdata_RMBLsexratios_2023-03-24.csv",row.names=FALSE)
+#write.csv(beedatafocal,"focalbeedata_envdata_RMBLsexratios_2023-03-29.csv",row.names=FALSE)
+
+
 
 ##### Look at correlations between climate variables #####
 beedatafocal<-read.csv("focalbeedata_envdata_RMBLsexratios_2023-03-24.csv")
@@ -263,7 +306,9 @@ ggplot(data=beedatafocal, aes(x=doy_bare_ground, y=SnowLengthDays)) + geom_point
 
 
 ##### Graph relationships between each climate variable and sex ratios #####
-beedatafocal<-read.csv("focalbeedata_envdata_RMBLsexratios_2023-03-24.csv")
+#beedatafocal<-read.csv("focalbeedata_envdata_RMBLsexratios_2023-03-24.csv")
+beedatafocal<-read.csv("focalbeedata_envdata_RMBLsexratios_2023-03-29.csv")
+
 
 # subset to just include focal sites
 # 16 sites currently sampled
@@ -402,7 +447,7 @@ p
 
 
 ##### GLMMs: Across species, do climate variables together predict female/male counts? #####
-beedatafocal<-read.csv("focalbeedata_envdata_RMBLsexratios_2023-03-24.csv")
+beedatafocal<-read.csv("focalbeedata_envdata_RMBLsexratios_2023-03-29.csv")
 
 # subset to just include focal sites
 # 16 sites currently sampled
@@ -430,6 +475,8 @@ m3 <- glmer(sex_binom ~ prev_yr_accum_summer_precip_cm_z + (1|site) + (1|genus_s
 
 # prev_yr_doy_bare_ground_z - BEST SINGLE VARIABLE MODEL
 m4 <- glmer(sex_binom ~ prev_yr_doy_bare_ground_z + (1|site) + (1|genus_species), data = beedatafocal, family = binomial)
+
+summary(m4)
 
 # accum_summer_precip_cm_z + doy_bare_ground_z
 m5 <- glmer(sex_binom ~ accum_summer_precip_cm_z + doy_bare_ground_z + (1|site) + (1|genus_species), data = beedatafocal, family = binomial)
@@ -492,17 +539,117 @@ m15 <- glmer(sex_binom ~ doy_bare_ground_z + accum_summer_precip_cm_z + prev_yr_
 aicc<-AICc(m1,m2,m3,m4,m5,m6,m7,m8,m9,m10,m11,m12,m13,m14,m15
            #,ma,mb,mc,md,me,mf,mg,mh
            )
+aicc$model<-1:15
 aicc<-arrange(aicc,AICc)
 aicc$deltaAICc<-aicc$AICc-min(aicc$AICc)
 aicc
+
+r2<-bind_rows(data.frame(rsquared(m1)),
+data.frame(rsquared(m2)),
+data.frame(rsquared(m3)),
+data.frame(rsquared(m4)),
+data.frame(rsquared(m5)),
+data.frame(rsquared(m6)),
+data.frame(rsquared(m7)),
+data.frame(rsquared(m8)),
+data.frame(rsquared(m9)),
+data.frame(rsquared(m10)),
+data.frame(rsquared(m11)),
+data.frame(rsquared(m12)),
+data.frame(rsquared(m13)),
+data.frame(rsquared(m14)),
+data.frame(rsquared(m15)))
+r2$model<-1:15
 
 # get summary from best model
 summary(m15)
 rsquared(m15)
 vif(m15)
 
-df<-data.frame(summary(m15)$coefficients)
-#write.csv(df,"output.csv")
+summary_df<-bind_rows(data.frame(summary(m1)$coefficients,model=1),
+                    data.frame(summary(m2)$coefficients,model=2),
+                    data.frame(summary(m3)$coefficients,model=3),
+                    data.frame(summary(m4)$coefficients,model=4), 
+                    data.frame(summary(m5)$coefficients,model=5),
+                    data.frame(summary(m6)$coefficients,model=6),
+                    data.frame(summary(m7)$coefficients,model=7),
+                    data.frame(summary(m8)$coefficients,model=8),
+                    data.frame(summary(m9)$coefficients,model=9),
+                    data.frame(summary(m10)$coefficients,model=10),
+                    data.frame(summary(m11)$coefficients,model=11),
+                    data.frame(summary(m12)$coefficients,model=12),
+                    data.frame(summary(m13)$coefficients,model=13),
+                    data.frame(summary(m14)$coefficients,model=14),
+                    data.frame(summary(m15)$coefficients,model=15))
+
+summary_df$Term <- row.names(summary_df)  
+summary_df<-left_join(summary_df,aicc,by="model")
+summary_df<-left_join(summary_df,r2,by="model")
+
+#write.csv(summary_df,"glmm_output_allspecies_2023_04_04.csv")
+
+allEffects(m15)
+plot(allEffects(m15))
+
+library(visreg)
+library(ggtext)
+dev.off()
+
+#snowmelt #7216d2
+#precip #3178f0
+#prior snowmelt #b52ad0
+#prior precip #28adee
+
+p1a<-visreg(m15,"doy_bare_ground_z",type="conditional", scale="response", gg=TRUE, line=list(col="#7216d2")) 
+p1<- p1a + xlab("Snowmelt date") + ylab("Sex \n(female=1, male=0)") +
+  theme_linedraw(base_size = 14) + 
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank())+
+  annotate("text", x = 1, y = .4, label = expression(atop(italic("\u03B2")==-0.32, italic(P)*" < 0.0001"))) +
+  ggtitle("a")
+#p1
+
+p2a<-visreg(m15,"accum_summer_precip_cm_z",type="conditional", scale="response", gg=TRUE, line=list(col="#3178f0"))
+p2<- p2a + xlab("Summer precipitation") + ylab("Sex \n(female=1, male=0)") +
+  theme_linedraw(base_size = 14) + 
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank()) +
+  annotate("text", x = 1, y = .4, label = expression(atop(italic("\u03B2")==0.16, italic(P)*" < 0.0001"))) +
+  ggtitle("b")
+#p2
+
+p3a<-visreg(m15,"prev_yr_doy_bare_ground_z",type="conditional", scale="response", gg=TRUE, line=list(col="#b52ad0")) 
+p3<-p3a + xlab("Prior year's \nsnowmelt date") + ylab("Sex \n(female=1, male=0)") +
+  theme_linedraw(base_size = 14) + 
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank()) +
+  annotate("text", x = 1, y = .25, label = expression(atop(italic("\u03B2")==0.58, italic(P)*" < 0.0001"))) +
+  ggtitle("c")
+#p3
+
+
+p4a<-visreg(m15,"prev_yr_accum_summer_precip_cm_z",type="conditional", scale="response", gg=TRUE, line=list(col="#28adee")) 
+p4<- p4a + xlab("Prior year's \nsummer precipitation") + ylab("Sex \n(female=1, male=0)") +
+  theme_linedraw(base_size = 14) + 
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank()) +
+  annotate("text", x = 1, y = .4, label = expression(atop(italic("\u03B2")==-0.09, italic(P)*" < 0.0001"))) +
+  ggtitle("d")
+#p4
+
+
+
+library(patchwork)
+plot<-p1 + p2 + p3 + p4 + plot_layout(ncol = 2)
+#plot
+
+plot[[2]] = plot[[2]] + theme(axis.text.y = element_blank(),
+                                        axis.ticks.y = element_blank(),
+                                        axis.title.y = element_blank() )
+plot[[4]] = plot[[4]] + theme(axis.text.y = element_blank(),
+                              axis.ticks.y = element_blank(),
+                              axis.title.y = element_blank() )
+# plot <- plot + plot_annotation(tag_levels = "a") & 
+#   theme(plot.tag = element_text(size = 18))
+plot
+
+#ggsave("glmm_allspecies_parameters.png", plot,width=6,height=7,units = c("in"),dpi = 600)
 
 # get summary from best single-variable model
 summary(m4)
@@ -521,7 +668,7 @@ vif(m13)
 vif(m14)
 
 ##### GLMMs: For each species individually, how does climate relate to female/male counts? #####
-beedatafocal<-read.csv("focalbeedata_envdata_RMBLsexratios_2023-03-24.csv")
+beedatafocal<-read.csv("focalbeedata_envdata_RMBLsexratios_2023-03-29.csv")
 
 # subset to just include focal sites
 sitelist<-c("Almont","Almont Curve","Beaver","CDOT","Copper","Davids","Elko","Gothic","Hill","Little","Lypps","Mexican Cut","Rustlers","Seans","Tuttle","Willey")
@@ -715,14 +862,14 @@ aicc$predictors<-c("accum_summer_precip_cm_z", "doy_bare_ground_z", "prev_yr_acc
 aicc<-aicc[,-c(2:3)]
 output<-left_join(output,aicc,by="model")
 
-#write.csv(output,"species_glmms_climate_sex_ratios_2023-03-23.csv", row.names = FALSE)
+#write.csv(output,"species_glmms_climate_sex_ratios_2023-03-29.csv", row.names = FALSE)
 
 
 
 
 
 ##### For individual species: graphs of relationships with different climate variables #####
-results<-read.csv("species_glmms_climate_sex_ratios_2023-03-24.csv")
+results<-read.csv("species_glmms_climate_sex_ratios_2023-03-29.csv")
 bestmodels<-filter(results,delta_AICc==0)
 slopes_long<-pivot_longer(bestmodels[,c(21,1,22,8:11)],cols=4:7,values_to="slope")
 names(slopes_long)[4]<-"term"
@@ -785,48 +932,53 @@ slope_se_long<-left_join(slope_se_long, summary_terms, by=c("model","predictors"
 slope_se_long$term_id_labels<-slope_se_long$term_id
 slope_se_long$term_id_renamed<-as.factor(slope_se_long$term_id)
 
-levels(slope_se_long$term_id_renamed) <- c("Summer \nprecipitation","Snowmelt date","Prior summer \nprecipitation","Prior year \nsnowmelt date")
+levels(slope_se_long$term_id_renamed) <- c("Precip.","Snowmelt","Prior year's precip.","Prior year's snowmelt")
+
+slope_se_long$term_id_renamed <- factor(slope_se_long$term_id_renamed, levels=c("Snowmelt","Precip.","Prior year's snowmelt","Prior year's precip."))
+
+# levels(slope_se_long$term_id_renamed) <- c("Summer \nprecipitation","Snowmelt \ndate","Prior year's \nsummer precipitation","Prior year's \nsnowmelt date")
+# 
+# slope_se_long$term_id_renamed <- factor(slope_se_long$term_id_renamed, levels=c("Snowmelt \ndate","Summer \nprecipitation","Prior year's \nsnowmelt date","Prior year's \nsummer precipitation"))
 
 slope_se_long$pvalue_sig<-ifelse(slope_se_long$pvalue>=0.05,"Nonsignificant","Significant")
 
-ggplot(slope_se_long, aes(y = slope, x = term_id_renamed, color=pvalue_sig)) +
+slope_se_long<-filter(slope_se_long,genus_species!="Hoplitis fulgida" & genus_species!="Hoplitis robusta" & genus_species!="Hylaeus annulatus" & genus_species!="Osmia albolateralis")
+
+p<-ggplot(slope_se_long, aes(y = slope, x = term_id_renamed, color=pvalue_sig)) +
   geom_point(size=2, position=position_dodge(width=0.5)) +
   xlab("Climate predictor") + ylab("Parameter estimate") +
   geom_errorbar(aes(ymin=slope-se, ymax=slope+se), width=.2,position=position_dodge(width=0.5)) +
-  theme_classic() +
-  theme(axis.text.x = element_text(angle = 45, hjust=1)) +
-  geom_hline(yintercept=0, linetype='dashed', col = 'darkgray') + facet_wrap(~genus_species,ncol=2) + theme(legend.position = "none") +
-  scale_color_manual(values=c("darkgray","black"))
+  theme_bw() +
+  theme(axis.text.x = element_text(angle = 45, hjust=1
+                                   #, colour=c("#3178f0","#7216d2","#28adee","#b52ad0")
+                                   )) +
+  geom_hline(yintercept=0, linetype='dashed', col = 'darkgray') + facet_wrap(~genus_species,ncol=3) + theme(legend.position = "none") +
+  scale_color_manual(values=c("darkgray","black")) +
+  #scale_color_manual(values=c("#3178f0","#7216d2","#28adee","#b52ad0")) +
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank()) +
+  theme(strip.text = element_text(face = "italic"), strip.background = element_rect(fill = "white"))
+p
+
+#precip #3178f0
+#snowmelt #7216d2
+#prior precip #28adee
+#prior snowmelt #b52ad0
 
 
-##### Adding floral data: Inouye data #####
 
-# read in floral data
-flor<-read.csv("floral_data_annual_summaries_forsexratios.csv")
-# add current year's floral data to be dataset
-beedatafocal<-left_join(beedatafocal,flor,by="year")
-# add prior year's floral data to bee dataset
-flor_prior<-flor
-flor_prior$year<-flor_prior$year+1
-names(flor_prior)[2:5]<-c("prev_yr_total_flowers", "prev_yr_total_flowers_80", "prev_yr_floral_days", "prev_yr_floral_days_80")
-beedatafocal<-left_join(beedatafocal,flor_prior, by="year")
 
-# z-score floral variables
-beedatafocal$total_flowers_z<-as.numeric(scale(beedatafocal$total_flowers, center = TRUE, scale = TRUE))
-beedatafocal$prev_yr_total_flowers_z<-as.numeric(scale(beedatafocal$prev_yr_total_flowers, center = TRUE, scale = TRUE))
 
-beedatafocal$floral_days_z<-as.numeric(scale(beedatafocal$floral_days, center = TRUE, scale = TRUE))
-beedatafocal$prev_yr_floral_days_z<-as.numeric(scale(beedatafocal$prev_yr_floral_days, center = TRUE, scale = TRUE))
 
-beedatafocal$total_flowers_80_z<-as.numeric(scale(beedatafocal$total_flowers_80, center = TRUE, scale = TRUE))
-beedatafocal$prev_yr_total_flowers_80_z<-as.numeric(scale(beedatafocal$prev_yr_total_flowers_80, center = TRUE, scale = TRUE))
 
-beedatafocal$floral_days_80_z<-as.numeric(scale(beedatafocal$floral_days_80, center = TRUE, scale = TRUE))
-beedatafocal$prev_yr_floral_days_80_z<-as.numeric(scale(beedatafocal$prev_yr_floral_days_80, center = TRUE, scale = TRUE))
+
+  
+#ggsave("glmm_indivspecies_parameters.png", p,width=5.5,height=6.5,units = c("in"),dpi = 600)
+#ggsave("glmm_indivspecies_parameters.png", p,width=5,height=12,units = c("in"),dpi = 600)
 
 
 ##### Relationships between climate and floral variables: Inouye data #####
 
+#beedatafocal<-read.csv("focalbeedata_envdata_RMBLsexratios_2023-02-21.csv")
 beedatafocal<-read.csv("focalbeedata_envdata_RMBLsexratios_2023-03-24.csv")
 
 # subset to just include focal sites
@@ -863,6 +1015,20 @@ ggplot(beedatafocal, aes(y = total_flowers, x = accum_summer_precip_cm)) +
   xlab("Summer precipitation") + ylab("Floral sum") + facet_wrap(~site)
 summary(lm(total_flowers~accum_summer_precip_cm,data=beedatafocal))
 
+ggplot(beedatafocal, aes(y = total_flowers_80, x = doy_bare_ground)) +
+  geom_point() +
+  theme_classic(base_size = 15) +
+  geom_smooth(method = lm) + 
+  xlab("Snowmelt date") + ylab("Floral sum") + facet_wrap(~site)
+summary(lm(total_flowers_80~doy_bare_ground,data=beedatafocal))
+
+ggplot(beedatafocal, aes(y = total_flowers_80, x = accum_summer_precip_cm)) +
+  geom_point() +
+  theme_classic(base_size = 15) +
+  geom_smooth(method = lm) + 
+  xlab("Summer precipitation") + ylab("Floral sum") + facet_wrap(~site)
+summary(lm(total_flowers_80~accum_summer_precip_cm,data=beedatafocal))
+
 ggplot(beedatafocal, aes(y = floral_days, x = doy_bare_ground)) +
   geom_point() +
   theme_classic(base_size = 15) +
@@ -877,18 +1043,60 @@ ggplot(beedatafocal, aes(y = floral_days, x = accum_summer_precip_cm)) +
   xlab("Summer precipitation") + ylab("Floral days") #+ facet_wrap(~site)
 summary(lm(floral_days~accum_summer_precip_cm,data=beedatafocal))
 
+# determine best model structure for inclusion in SEMs
+
+# floral days
+m1<-lme(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+      prev_yr_doy_bare_ground_z +
+      prev_yr_accum_summer_precip_cm_z, random=~1|site,
+    data = beedatafocal, method="ML") # best model
+m2<-lme(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+          prev_yr_doy_bare_ground_z +
+          prev_yr_accum_summer_precip_cm_z, random=~1|site,
+        data = beedatafocal, method="ML")
+AICc(m1,m2)
+
+# floral sum
+m1<-lme(prev_yr_total_flowers_z ~
+      prev_yr_doy_bare_ground_z +
+      prev_yr_accum_summer_precip_cm_z, random=~1|site,
+    data = beedatafocal, method="ML") # best model
+m2<-lme(prev_yr_total_flowers_z ~
+          prev_yr_doy_bare_ground_z +
+          prev_yr_accum_summer_precip_cm_z, random=~1|site,
+        data = beedatafocal, method="ML")
+AICc(m1,m2)
+
+
+
+
+
+
+
+
 
 
 
 
 ################ SEMs: all species ################
 
-beedatafocal<-read.csv("focalbeedata_envdata_RMBLsexratios_2023-03-24.csv")
+beedatafocal<-read.csv("focalbeedata_envdata_RMBLsexratios_2023-03-29.csv")
 # subset to just include focal sites
 sitelist<-c("Almont","Almont Curve","Beaver","CDOT","Copper","Davids","Elko","Gothic","Hill","Little","Lypps","Mexican Cut","Rustlers","Seans","Tuttle","Willey")
 beedatafocal<-filter(beedatafocal, site %in% sitelist) 
+length(unique(beedatafocal$year))
+#beedatafocal<-filter(beedatafocal,year!=2016)
 
-### (full) SEM: all prior year's climate and floral predictor variables 
+# # just look at mid-elevation sites
+# siteinfo<-read.csv("site_info.csv")
+# beedatafocal<-left_join(beedatafocal,siteinfo,by="site")
+# beedatafocal<-filter(beedatafocal, elev_group=="Mid")
+
+# just look at Gothic sites
+#beedatafocal<-filter(beedatafocal,block=="A" | block=="B" | block=="D")
+
+
+### (full) SEM: all prior year's climate and floral predictor variables #####
 semFull<-psem(
 
   # effects of climate on sex ratios
@@ -898,21 +1106,24 @@ semFull<-psem(
           prev_yr_total_flowers_z +
           (1|site) + (1|genus_species),
         data = beedatafocal, family = binomial),
-
+  
   # effects of climate on flowers
-  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+  lme(prev_yr_floral_days_z ~
        prev_yr_doy_bare_ground_z +
-       prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal),
+       prev_yr_accum_summer_precip_cm_z, random=~1|site,
+     data = beedatafocal, method="ML"),
 
-  lm(prev_yr_total_flowers_z ~
+  lme(prev_yr_total_flowers_z ~
        prev_yr_doy_bare_ground_z +
-       prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal)
+       prev_yr_accum_summer_precip_cm_z, random=~1|site,
+      data = beedatafocal, method="ML"), 
+  
+  prev_yr_total_flowers_z %~~% prev_yr_floral_days_z
 
 )
 
 summary(semFull, .progressBar = F)
+plot(semFull)
 
 
 # plotting the SEM! resources:
@@ -926,6 +1137,8 @@ unique(coef$Predictor)
 
 coef$to<-coef$Response
 coef$from<-coef$Predictor
+
+coef<-coef[-9,]
 
 coef$to[coef$to=="sex_binom"] <- 1
 coef$to[coef$to=="prev_yr_floral_days_z"] <- 2
@@ -1001,7 +1214,7 @@ graph <-
 render_graph(graph)
 
 
-### (1) SEM: snowmelt 
+### (1) SEM: snowmelt #####
 sem1<-psem(
   
   # effects of climate on sex ratios
@@ -1010,15 +1223,17 @@ sem1<-psem(
         data = beedatafocal, family = binomial),
   
   # effects of climate on flowers
-  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+  lme(prev_yr_floral_days_z ~
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal),
+     random=~1|site, data = beedatafocal, method="ML"),
   
-  lm(prev_yr_total_flowers_z ~
+  lme(prev_yr_total_flowers_z ~
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal)
+     random=~1|site, data = beedatafocal, method="ML"),
+  
+  prev_yr_total_flowers_z %~~% prev_yr_floral_days_z
   
 )
 
@@ -1036,15 +1251,17 @@ sem2<-psem(
         data = beedatafocal, family = binomial),
   
   # effects of climate on flowers
-  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+  lme(prev_yr_floral_days_z ~
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal),
+     random=~1|site, data = beedatafocal, method="ML"),
   
-  lm(prev_yr_total_flowers_z ~
+  lme(prev_yr_total_flowers_z ~
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal)
+     random=~1|site, data = beedatafocal, method="ML"),
+  
+  prev_yr_total_flowers_z %~~% prev_yr_floral_days_z
   
 )
 
@@ -1061,15 +1278,17 @@ sem3<-psem(
         data = beedatafocal, family = binomial),
   
   # effects of climate on flowers
-  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+  lme(prev_yr_floral_days_z ~
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal),
+     random=~1|site, data = beedatafocal, method="ML"),
   
-  lm(prev_yr_total_flowers_z ~
+  lme(prev_yr_total_flowers_z ~
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal)
+     random=~1|site, data = beedatafocal, method="ML"),
+  
+  prev_yr_total_flowers_z %~~% prev_yr_floral_days_z
   
 )
 
@@ -1086,15 +1305,17 @@ sem4<-psem(
         data = beedatafocal, family = binomial),
   
   # effects of climate on flowers
-  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+  lme(prev_yr_floral_days_z ~
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal),
+     random=~1|site, data = beedatafocal, method="ML"),
   
-  lm(prev_yr_total_flowers_z ~
+  lme(prev_yr_total_flowers_z ~
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal)
+     random=~1|site, data = beedatafocal, method="ML"),
+  
+  prev_yr_total_flowers_z %~~% prev_yr_floral_days_z
   
 )
 
@@ -1111,15 +1332,17 @@ sem5<-psem(
         data = beedatafocal, family = binomial),
   
   # effects of climate on flowers
-  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+  lme(prev_yr_floral_days_z ~
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal),
+     random=~1|site, data = beedatafocal, method="ML"),
   
-  lm(prev_yr_total_flowers_z ~
+  lme(prev_yr_total_flowers_z ~
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal)
+     random=~1|site, data = beedatafocal, method="ML"),
+  
+  prev_yr_total_flowers_z %~~% prev_yr_floral_days_z
   
 )
 
@@ -1137,15 +1360,17 @@ sem6<-psem(
         data = beedatafocal, family = binomial),
   
   # effects of climate on flowers
-  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+  lme(prev_yr_floral_days_z ~
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal),
+     random=~1|site, data = beedatafocal, method="ML"),
   
-  lm(prev_yr_total_flowers_z ~
+  lme(prev_yr_total_flowers_z ~
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal)
+     random=~1|site, data = beedatafocal, method="ML"),
+  
+  prev_yr_total_flowers_z %~~% prev_yr_floral_days_z
   
 )
 
@@ -1163,15 +1388,17 @@ sem7<-psem(
         data = beedatafocal, family = binomial),
   
   # effects of climate on flowers
-  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+  lme(prev_yr_floral_days_z ~
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal),
+     random=~1|site, data = beedatafocal, method="ML"),
   
-  lm(prev_yr_total_flowers_z ~
+  lme(prev_yr_total_flowers_z ~
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal)
+     random=~1|site, data = beedatafocal, method="ML"),
+  
+  prev_yr_total_flowers_z %~~% prev_yr_floral_days_z
   
 )
 
@@ -1190,15 +1417,17 @@ sem8<-psem(
         data = beedatafocal, family = binomial),
   
   # effects of climate on flowers
-  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+  lme(prev_yr_floral_days_z ~ 
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal),
+     random=~1|site, data = beedatafocal, method="ML"),
   
-  lm(prev_yr_total_flowers_z ~
+  lme(prev_yr_total_flowers_z ~
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal)
+     random=~1|site, data = beedatafocal, method="ML"),
+  
+  prev_yr_total_flowers_z %~~% prev_yr_floral_days_z
   
 )
 
@@ -1216,15 +1445,17 @@ sem9<-psem(
         data = beedatafocal, family = binomial),
   
   # effects of climate on flowers
-  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+  lme(prev_yr_floral_days_z ~ 
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal),
+     random=~1|site, data = beedatafocal, method="ML"),
   
-  lm(prev_yr_total_flowers_z ~
+  lme(prev_yr_total_flowers_z ~
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal)
+     random=~1|site, data = beedatafocal, method="ML"),
+  
+  prev_yr_total_flowers_z %~~% prev_yr_floral_days_z
   
 )
 
@@ -1241,15 +1472,17 @@ sem10<-psem(
         data = beedatafocal, family = binomial),
   
   # effects of climate on flowers
-  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+  lme(prev_yr_floral_days_z ~ 
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal),
+     random=~1|site, data = beedatafocal, method="ML"),
   
-  lm(prev_yr_total_flowers_z ~
+  lme(prev_yr_total_flowers_z ~
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal)
+     random=~1|site, data = beedatafocal, method="ML"),
+  
+  prev_yr_total_flowers_z %~~% prev_yr_floral_days_z
   
 )
 
@@ -1272,15 +1505,17 @@ sem11<-psem(
         data = beedatafocal, family = binomial),
   
   # effects of climate on flowers
-  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+  lme(prev_yr_floral_days_z ~ 
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal),
+     random=~1|site, data = beedatafocal, method="ML"),
   
-  lm(prev_yr_total_flowers_z ~
+  lme(prev_yr_total_flowers_z ~
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal)
+     random=~1|site, data = beedatafocal, method="ML"),
+  
+  prev_yr_total_flowers_z %~~% prev_yr_floral_days_z
   
 )
 
@@ -1299,15 +1534,17 @@ sem12<-psem(
         data = beedatafocal, family = binomial),
   
   # effects of climate on flowers
-  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+  lme(prev_yr_floral_days_z ~
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal),
+     random=~1|site, data = beedatafocal, method="ML"),
   
-  lm(prev_yr_total_flowers_z ~
+  lme(prev_yr_total_flowers_z ~
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal)
+     random=~1|site, data = beedatafocal, method="ML"),
+  
+  prev_yr_total_flowers_z %~~% prev_yr_floral_days_z
   
 )
 
@@ -1325,15 +1562,17 @@ sem13<-psem(
         data = beedatafocal, family = binomial),
   
   # effects of climate on flowers
-  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+  lme(prev_yr_floral_days_z ~
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal),
+     random=~1|site, data = beedatafocal, method="ML"),
   
-  lm(prev_yr_total_flowers_z ~
+  lme(prev_yr_total_flowers_z ~
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal)
+     random=~1|site, data = beedatafocal, method="ML"),
+  
+  prev_yr_total_flowers_z %~~% prev_yr_floral_days_z
   
 )
 
@@ -1352,15 +1591,17 @@ sem14<-psem(
         data = beedatafocal, family = binomial),
   
   # effects of climate on flowers
-  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+  lme(prev_yr_floral_days_z ~
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal),
+     random=~1|site, data = beedatafocal, method="ML"),
   
-  lm(prev_yr_total_flowers_z ~
+  lme(prev_yr_total_flowers_z ~
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal)
+     random=~1|site, data = beedatafocal, method="ML"),
+  
+  prev_yr_total_flowers_z %~~% prev_yr_floral_days_z
   
 )
 
@@ -1412,7 +1653,7 @@ coefs_df<-bind_rows(data.frame(coefs(semFull),model=0),
                     data.frame(coefs(sem1),model=1),
                     data.frame(coefs(sem2),model=2),
                     data.frame(coefs(sem3),model=3),
-                    data.frame(coefs(sem4),model=4), 
+                    data.frame(coefs(sem4),model=4),
                     data.frame(coefs(sem5),model=5),
                     data.frame(coefs(sem6),model=6),
                     data.frame(coefs(sem7),model=7),
@@ -1442,28 +1683,127 @@ summary(sem12, .progressBar = F)
 summary(sem13, .progressBar = F) 
 summary(sem14, .progressBar = F) 
 
+### Plot the best SEM (lowest AICc) #####
+coef<-summary(sem13, .progressBar = F)$coef
+coef
+unique(coef$Response)
+unique(coef$Predictor)
+
+coef<-subset(coef,Predictor!="~~prev_yr_floral_days_z")
+
+coef$to<-coef$Response
+coef$from<-coef$Predictor
+
+coef$to[coef$to=="sex_binom"] <- 1
+coef$to[coef$to=="prev_yr_floral_days_z"] <- 2
+coef$to[coef$to=="prev_yr_total_flowers_z"] <- 3
+coef$to[coef$to=="prev_yr_doy_bare_ground_z"] <- 4
+coef$to[coef$to=="prev_yr_accum_summer_precip_cm_z"] <- 5
+
+coef$from[coef$from=="sex_binom"] <- 1
+coef$from[coef$from=="prev_yr_floral_days_z"] <- 2
+coef$from[coef$from=="prev_yr_total_flowers_z"] <- 3
+coef$from[coef$from=="prev_yr_doy_bare_ground_z"] <- 4
+coef$from[coef$from=="prev_yr_accum_summer_precip_cm_z"] <- 5
+
+coef$style<-ifelse(coef$Estimate>0,"solid","dashed")
+coef$color<-ifelse(coef$P.Value>=0.05,"lightgray","black")
+
+ndf <-
+  create_node_df(
+    n = 5,
+    fontsize=6,
+    fixedsize=TRUE,
+    color="black",
+    fontcolor="black",
+    fillcolor="white",
+    fontname="Baskerville",
+    penwidth=0.5,
+    shape="rectangle",
+    width=0.7,
+    height=0.3,
+    label = c("Female/male \nratio","Floral days \n(prior year)", "Floral sum \n(prior year)","Snowmelt date \n(prior year)","Summer precip. \n(prior year)"))
+
+graph <-
+  create_graph(
+    nodes_df = ndf)
+
+render_graph(graph)
+
+# edf <-
+#   create_edge_df(
+#     from = coef$from,
+#     to = coef$to,
+#     rel = "leading_to",
+#     #label = round(coef$Estimate,digits=2),
+#     penwidth = abs(coef$Estimate*2),
+#     fontsize=5.5,
+#     fontcolor="brown3",
+#     #color=coef$color,
+#     color="black",
+#     style=coef$style)
+
+edf <-
+  create_edge_df(
+    from = coef$from,
+    to = coef$to,
+    rel = "leading_to",
+    #label = round(coef$Estimate,digits=2),
+    penwidth = abs(coef$Estimate*2),
+    fontsize=5.5,
+    fontcolor="brown3",
+    color=coef$color,
+    style=coef$style)
+
+graph <-
+  create_graph(
+    nodes_df = ndf,
+    edges_df = edf)
+
+render_graph(graph)
+
+graph <-
+  graph %>%
+  set_node_position(
+    node = 1, # sex ratio
+    x = 3, y = 1.5) %>%
+  set_node_position(
+    node = 2, # floral days
+    x = 2, y = 1) %>%
+  set_node_position(
+    node = 3, # floral sum
+    x = 2, y = 2) %>%
+  set_node_position(
+    node = 4, # snowmelt date
+    x = 1, y = 2) %>%
+  set_node_position(
+    node = 5, # summer precip
+    x = 1, y = 1)
+
+render_graph(graph)
+
+#graph %>% export_graph(file_name = "SEM_AllSpecies_bestmodel.pdf")
+
 ### Perform model averaging #####
 
-# sem full, sem 13
-coef_list<-list(coef(summary(semFull[[1]]))[, 1], coef(summary(sem13[[1]]))[, 1])
-weightslist<-c(summary(semFull, .progressBar = F)$AIC$AICc,summary(sem13, .progressBar = F)$AIC$AICc)
+# sem 2, sem 3, sem 12, sem 13
+coef_list<-list(coef(summary(sem2[[1]]))[, 1], coef(summary(sem3[[1]]))[, 1],coef(summary(sem12[[1]]))[, 1],coef(summary(sem13[[1]]))[, 1])
+weightslist<-c(summary(sem2, .progressBar = F)$AIC$AICc,summary(sem3, .progressBar = F)$AIC$AICc,summary(sem12, .progressBar = F)$AIC$AICc,summary(sem13, .progressBar = F)$AIC$AICc)
 avgEst(coef_list)
 avgEst(coef_list,weights=weightslist)
 
-coef_list2<-list(coef(summary(semFull[[2]]))[, 1], coef(summary(sem13[[2]]))[, 1])
-weightslist<-c(summary(semFull, .progressBar = F)$AIC$AICc,summary(sem13, .progressBar = F)$AIC$AICc)
+coef_list2<-list(coef(summary(sem2[[2]]))[, 1], coef(summary(sem3[[2]]))[, 1],coef(summary(sem12[[2]]))[, 1],coef(summary(sem13[[2]]))[, 1])
+weightslist<-c(summary(sem2, .progressBar = F)$AIC$AICc,summary(sem3, .progressBar = F)$AIC$AICc,summary(sem12, .progressBar = F)$AIC$AICc,summary(sem13, .progressBar = F)$AIC$AICc)
 avgEst(coef_list2)
 avgEst(coef_list2,weights=weightslist)
 
-coef_list3<-list(coef(summary(semFull[[3]]))[, 1], coef(summary(sem13[[3]]))[, 1])
-weightslist<-c(summary(semFull, .progressBar = F)$AIC$AICc,summary(sem13, .progressBar = F)$AIC$AICc)
+coef_list3<-list(coef(summary(sem2[[3]]))[, 1], coef(summary(sem3[[3]]))[, 1],coef(summary(sem12[[3]]))[, 1],coef(summary(sem13[[3]]))[, 1])
+weightslist<-c(summary(sem2, .progressBar = F)$AIC$AICc,summary(sem3, .progressBar = F)$AIC$AICc,summary(sem12, .progressBar = F)$AIC$AICc,summary(sem13, .progressBar = F)$AIC$AICc)
 avgEst(coef_list3)
 avgEst(coef_list3,weights=weightslist)
 
-coefs(semFull)
-coefs(sem13)
 
-### plot the SEM #####
+### Plot the model-averaged SEM #####
 est<-data.frame(avgEst(coef_list,weights=weightslist))
 est <- tibble::rownames_to_column(est, "Predictor")
 est<-est[-1,]
@@ -1578,16 +1918,39 @@ render_graph(graph)
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 ##### SEMs: individual species #####
+
 
 ############## (1) Panurginus cressoniellus ################
 
-beedatafocal<-read.csv("focalbeedata_envdata_RMBLsexratios_2023-03-24.csv")
+beedatafocal<-read.csv("focalbeedata_envdata_RMBLsexratios_2023-03-29.csv")
 # subset to just include focal sites
 sitelist<-c("Almont","Almont Curve","Beaver","CDOT","Copper","Davids","Elko","Gothic","Hill","Little","Lypps","Mexican Cut","Rustlers","Seans","Tuttle","Willey")
 beedatafocal<-filter(beedatafocal, site %in% sitelist) 
+#beedatafocal<-filter(beedatafocal,year!=2016)
 
 beedatafocal<-filter(beedatafocal,genus_species=="Panurginus cressoniellus")
+length(unique(beedatafocal$year))
+
+# # # just look at mid-elevation sites
+# siteinfo<-read.csv("site_info.csv")
+# beedatafocal<-left_join(beedatafocal,siteinfo,by="site")
+# beedatafocal<-filter(beedatafocal, elev_group=="Mid")
 
 ### (full) SEM: all prior year's climate and floral predictor variables 
 semFull<-psem(
@@ -1601,15 +1964,15 @@ semFull<-psem(
         data = beedatafocal, family = binomial),
   
   # effects of climate on flowers
-  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+  lme(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal),
+     random=~1|site, data = beedatafocal, method="ML"),
   
-  lm(prev_yr_total_flowers_z ~
+  lme(prev_yr_total_flowers_z ~
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal)
+     random=~1|site, data = beedatafocal, method="ML")
   
 )
 
@@ -1626,15 +1989,15 @@ sem1<-psem(
         data = beedatafocal, family = binomial),
   
   # effects of climate on flowers
-  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+  lme(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal),
+     random=~1|site, data = beedatafocal, method="ML"),
   
-  lm(prev_yr_total_flowers_z ~
+  lme(prev_yr_total_flowers_z ~
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal)
+     random=~1|site, data = beedatafocal, method="ML")
   
 )
 
@@ -1652,15 +2015,15 @@ sem2<-psem(
         data = beedatafocal, family = binomial),
   
   # effects of climate on flowers
-  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+  lme(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal),
+     random=~1|site, data = beedatafocal, method="ML"),
   
-  lm(prev_yr_total_flowers_z ~
+  lme(prev_yr_total_flowers_z ~
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal)
+     random=~1|site, data = beedatafocal, method="ML")
   
 )
 
@@ -1677,15 +2040,15 @@ sem3<-psem(
         data = beedatafocal, family = binomial),
   
   # effects of climate on flowers
-  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+  lme(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal),
+     random=~1|site, data = beedatafocal, method="ML"),
   
-  lm(prev_yr_total_flowers_z ~
+  lme(prev_yr_total_flowers_z ~
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal)
+     random=~1|site, data = beedatafocal, method="ML")
   
 )
 
@@ -1702,15 +2065,15 @@ sem4<-psem(
         data = beedatafocal, family = binomial),
   
   # effects of climate on flowers
-  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+  lme(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal),
+     random=~1|site, data = beedatafocal, method="ML"),
   
-  lm(prev_yr_total_flowers_z ~
+  lme(prev_yr_total_flowers_z ~
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal)
+     random=~1|site, data = beedatafocal, method="ML")
   
 )
 
@@ -1727,15 +2090,15 @@ sem5<-psem(
         data = beedatafocal, family = binomial),
   
   # effects of climate on flowers
-  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+  lme(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal),
+     random=~1|site, data = beedatafocal, method="ML"),
   
-  lm(prev_yr_total_flowers_z ~
+  lme(prev_yr_total_flowers_z ~
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal)
+     random=~1|site, data = beedatafocal, method="ML")
   
 )
 
@@ -1753,15 +2116,15 @@ sem6<-psem(
         data = beedatafocal, family = binomial),
   
   # effects of climate on flowers
-  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+  lme(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal),
+     random=~1|site, data = beedatafocal, method="ML"),
   
-  lm(prev_yr_total_flowers_z ~
+  lme(prev_yr_total_flowers_z ~
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal)
+     random=~1|site, data = beedatafocal, method="ML")
   
 )
 
@@ -1779,15 +2142,15 @@ sem7<-psem(
         data = beedatafocal, family = binomial),
   
   # effects of climate on flowers
-  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+  lme(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal),
+     random=~1|site, data = beedatafocal, method="ML"),
   
-  lm(prev_yr_total_flowers_z ~
+  lme(prev_yr_total_flowers_z ~
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal)
+     random=~1|site, data = beedatafocal, method="ML")
   
 )
 
@@ -1806,15 +2169,15 @@ sem8<-psem(
         data = beedatafocal, family = binomial),
   
   # effects of climate on flowers
-  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+  lme(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal),
+     random=~1|site, data = beedatafocal, method="ML"),
   
-  lm(prev_yr_total_flowers_z ~
+  lme(prev_yr_total_flowers_z ~
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal)
+     random=~1|site, data = beedatafocal, method="ML")
   
 )
 
@@ -1832,15 +2195,15 @@ sem9<-psem(
         data = beedatafocal, family = binomial),
   
   # effects of climate on flowers
-  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+  lme(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal),
+     random=~1|site, data = beedatafocal, method="ML"),
   
-  lm(prev_yr_total_flowers_z ~
+  lme(prev_yr_total_flowers_z ~
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal)
+     random=~1|site, data = beedatafocal, method="ML")
   
 )
 
@@ -1857,15 +2220,15 @@ sem10<-psem(
         data = beedatafocal, family = binomial),
   
   # effects of climate on flowers
-  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+  lme(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal),
+     random=~1|site, data = beedatafocal, method="ML"),
   
-  lm(prev_yr_total_flowers_z ~
+  lme(prev_yr_total_flowers_z ~
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal)
+     random=~1|site, data = beedatafocal, method="ML")
   
 )
 
@@ -1888,15 +2251,15 @@ sem11<-psem(
         data = beedatafocal, family = binomial),
   
   # effects of climate on flowers
-  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+  lme(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal),
+     random=~1|site, data = beedatafocal, method="ML"),
   
-  lm(prev_yr_total_flowers_z ~
+  lme(prev_yr_total_flowers_z ~
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal)
+     random=~1|site, data = beedatafocal, method="ML")
   
 )
 
@@ -1915,15 +2278,15 @@ sem12<-psem(
         data = beedatafocal, family = binomial),
   
   # effects of climate on flowers
-  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+  lme(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal),
+     random=~1|site, data = beedatafocal, method="ML"),
   
-  lm(prev_yr_total_flowers_z ~
+  lme(prev_yr_total_flowers_z ~
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal)
+     random=~1|site, data = beedatafocal, method="ML")
   
 )
 
@@ -1941,15 +2304,15 @@ sem13<-psem(
         data = beedatafocal, family = binomial),
   
   # effects of climate on flowers
-  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+  lme(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal),
+     random=~1|site, data = beedatafocal, method="ML"),
   
-  lm(prev_yr_total_flowers_z ~
+  lme(prev_yr_total_flowers_z ~
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal)
+     random=~1|site, data = beedatafocal, method="ML")
   
 )
 
@@ -1968,15 +2331,15 @@ sem14<-psem(
         data = beedatafocal, family = binomial),
   
   # effects of climate on flowers
-  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+  lme(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal),
+     random=~1|site, data = beedatafocal, method="ML"),
   
-  lm(prev_yr_total_flowers_z ~
+  lme(prev_yr_total_flowers_z ~
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal)
+     random=~1|site, data = beedatafocal, method="ML")
   
 )
 
@@ -2153,12 +2516,19 @@ render_graph(graph)
 
 ############## (2) Panurginus ineptus ################
 
-beedatafocal<-read.csv("focalbeedata_envdata_RMBLsexratios_2023-03-24.csv")
+beedatafocal<-read.csv("focalbeedata_envdata_RMBLsexratios_2023-03-29.csv")
 # subset to just include focal sites
 sitelist<-c("Almont","Almont Curve","Beaver","CDOT","Copper","Davids","Elko","Gothic","Hill","Little","Lypps","Mexican Cut","Rustlers","Seans","Tuttle","Willey")
 beedatafocal<-filter(beedatafocal, site %in% sitelist) 
+#beedatafocal<-filter(beedatafocal,year!=2016)
 
 beedatafocal<-filter(beedatafocal,genus_species=="Panurginus ineptus")
+length(unique(beedatafocal$year))
+
+# # # just look at mid-elevation sites
+# siteinfo<-read.csv("site_info.csv")
+# beedatafocal<-left_join(beedatafocal,siteinfo,by="site")
+# beedatafocal<-filter(beedatafocal, elev_group=="Mid")
 
 ### (full) SEM: all prior year's climate and floral predictor variables 
 semFull<-psem(
@@ -2172,15 +2542,15 @@ semFull<-psem(
         data = beedatafocal, family = binomial),
   
   # effects of climate on flowers
-  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+  lme(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal),
+     random=~1|site, data = beedatafocal, method="ML"),
   
-  lm(prev_yr_total_flowers_z ~
+  lme(prev_yr_total_flowers_z ~
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal)
+     random=~1|site, data = beedatafocal, method="ML")
   
 )
 
@@ -2197,15 +2567,15 @@ sem1<-psem(
         data = beedatafocal, family = binomial),
   
   # effects of climate on flowers
-  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+  lme(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal),
+     random=~1|site, data = beedatafocal, method="ML"),
   
-  lm(prev_yr_total_flowers_z ~
+  lme(prev_yr_total_flowers_z ~
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal)
+     random=~1|site, data = beedatafocal, method="ML")
   
 )
 
@@ -2223,15 +2593,15 @@ sem2<-psem(
         data = beedatafocal, family = binomial),
   
   # effects of climate on flowers
-  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+  lme(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal),
+     random=~1|site, data = beedatafocal, method="ML"),
   
-  lm(prev_yr_total_flowers_z ~
+  lme(prev_yr_total_flowers_z ~
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal)
+     random=~1|site, data = beedatafocal, method="ML")
   
 )
 
@@ -2248,15 +2618,15 @@ sem3<-psem(
         data = beedatafocal, family = binomial),
   
   # effects of climate on flowers
-  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+  lme(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal),
+     random=~1|site, data = beedatafocal, method="ML"),
   
-  lm(prev_yr_total_flowers_z ~
+  lme(prev_yr_total_flowers_z ~
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal)
+     random=~1|site, data = beedatafocal, method="ML")
   
 )
 
@@ -2273,15 +2643,15 @@ sem4<-psem(
         data = beedatafocal, family = binomial),
   
   # effects of climate on flowers
-  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+  lme(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal),
+     random=~1|site, data = beedatafocal, method="ML"),
   
-  lm(prev_yr_total_flowers_z ~
+  lme(prev_yr_total_flowers_z ~
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal)
+     random=~1|site, data = beedatafocal, method="ML")
   
 )
 
@@ -2298,15 +2668,15 @@ sem5<-psem(
         data = beedatafocal, family = binomial),
   
   # effects of climate on flowers
-  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+  lme(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal),
+     random=~1|site, data = beedatafocal, method="ML"),
   
-  lm(prev_yr_total_flowers_z ~
+  lme(prev_yr_total_flowers_z ~
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal)
+     random=~1|site, data = beedatafocal, method="ML")
   
 )
 
@@ -2324,15 +2694,15 @@ sem6<-psem(
         data = beedatafocal, family = binomial),
   
   # effects of climate on flowers
-  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+  lme(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal),
+     random=~1|site, data = beedatafocal, method="ML"),
   
-  lm(prev_yr_total_flowers_z ~
+  lme(prev_yr_total_flowers_z ~
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal)
+     random=~1|site, data = beedatafocal, method="ML")
   
 )
 
@@ -2350,15 +2720,15 @@ sem7<-psem(
         data = beedatafocal, family = binomial),
   
   # effects of climate on flowers
-  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+  lme(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal),
+     random=~1|site, data = beedatafocal, method="ML"),
   
-  lm(prev_yr_total_flowers_z ~
+  lme(prev_yr_total_flowers_z ~
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal)
+     random=~1|site, data = beedatafocal, method="ML")
   
 )
 
@@ -2377,15 +2747,15 @@ sem8<-psem(
         data = beedatafocal, family = binomial),
   
   # effects of climate on flowers
-  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+  lme(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal),
+     random=~1|site, data = beedatafocal, method="ML"),
   
-  lm(prev_yr_total_flowers_z ~
+  lme(prev_yr_total_flowers_z ~
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal)
+     random=~1|site, data = beedatafocal, method="ML")
   
 )
 
@@ -2403,15 +2773,15 @@ sem9<-psem(
         data = beedatafocal, family = binomial),
   
   # effects of climate on flowers
-  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+  lme(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal),
+     random=~1|site, data = beedatafocal, method="ML"),
   
-  lm(prev_yr_total_flowers_z ~
+  lme(prev_yr_total_flowers_z ~
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal)
+     random=~1|site, data = beedatafocal, method="ML")
   
 )
 
@@ -2428,15 +2798,15 @@ sem10<-psem(
         data = beedatafocal, family = binomial),
   
   # effects of climate on flowers
-  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+  lme(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal),
+     random=~1|site, data = beedatafocal, method="ML"),
   
-  lm(prev_yr_total_flowers_z ~
+  lme(prev_yr_total_flowers_z ~
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal)
+     random=~1|site, data = beedatafocal, method="ML")
   
 )
 
@@ -2459,15 +2829,15 @@ sem11<-psem(
         data = beedatafocal, family = binomial),
   
   # effects of climate on flowers
-  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+  lme(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal),
+     random=~1|site, data = beedatafocal, method="ML"),
   
-  lm(prev_yr_total_flowers_z ~
+  lme(prev_yr_total_flowers_z ~
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal)
+     random=~1|site, data = beedatafocal, method="ML")
   
 )
 
@@ -2486,15 +2856,15 @@ sem12<-psem(
         data = beedatafocal, family = binomial),
   
   # effects of climate on flowers
-  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+  lme(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal),
+     random=~1|site, data = beedatafocal, method="ML"),
   
-  lm(prev_yr_total_flowers_z ~
+  lme(prev_yr_total_flowers_z ~
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal)
+     random=~1|site, data = beedatafocal, method="ML")
   
 )
 
@@ -2512,15 +2882,15 @@ sem13<-psem(
         data = beedatafocal, family = binomial),
   
   # effects of climate on flowers
-  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+  lme(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal),
+     random=~1|site, data = beedatafocal, method="ML"),
   
-  lm(prev_yr_total_flowers_z ~
+  lme(prev_yr_total_flowers_z ~
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal)
+     random=~1|site, data = beedatafocal, method="ML")
   
 )
 
@@ -2539,15 +2909,15 @@ sem14<-psem(
         data = beedatafocal, family = binomial),
   
   # effects of climate on flowers
-  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+  lme(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal),
+     random=~1|site, data = beedatafocal, method="ML"),
   
-  lm(prev_yr_total_flowers_z ~
+  lme(prev_yr_total_flowers_z ~
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal)
+     random=~1|site, data = beedatafocal, method="ML")
   
 )
 
@@ -2723,12 +3093,19 @@ render_graph(graph)
 
 ############## (3) Pseudopanurgus bakeri ################
 
-beedatafocal<-read.csv("focalbeedata_envdata_RMBLsexratios_2023-03-24.csv")
+beedatafocal<-read.csv("focalbeedata_envdata_RMBLsexratios_2023-03-29.csv")
 # subset to just include focal sites
 sitelist<-c("Almont","Almont Curve","Beaver","CDOT","Copper","Davids","Elko","Gothic","Hill","Little","Lypps","Mexican Cut","Rustlers","Seans","Tuttle","Willey")
 beedatafocal<-filter(beedatafocal, site %in% sitelist) 
+#beedatafocal<-filter(beedatafocal,year!=2016)
 
 beedatafocal<-filter(beedatafocal,genus_species=="Pseudopanurgus bakeri")
+length(unique(beedatafocal$year))
+
+# # just look at mid-elevation sites
+# siteinfo<-read.csv("site_info.csv")
+# beedatafocal<-left_join(beedatafocal,siteinfo,by="site")
+# beedatafocal<-filter(beedatafocal, elev_group=="Mid")
 
 ### (full) SEM: all prior year's climate and floral predictor variables 
 semFull<-psem(
@@ -2742,15 +3119,15 @@ semFull<-psem(
         data = beedatafocal, family = binomial),
   
   # effects of climate on flowers
-  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+  lme(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal),
+     random=~1|site, data = beedatafocal, method="ML"),
   
-  lm(prev_yr_total_flowers_z ~
+  lme(prev_yr_total_flowers_z ~
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal)
+     random=~1|site, data = beedatafocal, method="ML")
   
 )
 
@@ -2767,15 +3144,15 @@ sem1<-psem(
         data = beedatafocal, family = binomial),
   
   # effects of climate on flowers
-  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+  lme(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal),
+     random=~1|site, data = beedatafocal, method="ML"),
   
-  lm(prev_yr_total_flowers_z ~
+  lme(prev_yr_total_flowers_z ~
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal)
+     random=~1|site, data = beedatafocal, method="ML")
   
 )
 
@@ -2793,15 +3170,15 @@ sem2<-psem(
         data = beedatafocal, family = binomial),
   
   # effects of climate on flowers
-  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+  lme(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal),
+     random=~1|site, data = beedatafocal, method="ML"),
   
-  lm(prev_yr_total_flowers_z ~
+  lme(prev_yr_total_flowers_z ~
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal)
+     random=~1|site, data = beedatafocal, method="ML")
   
 )
 
@@ -2818,15 +3195,15 @@ sem3<-psem(
         data = beedatafocal, family = binomial),
   
   # effects of climate on flowers
-  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+  lme(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal),
+     random=~1|site, data = beedatafocal, method="ML"),
   
-  lm(prev_yr_total_flowers_z ~
+  lme(prev_yr_total_flowers_z ~
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal)
+     random=~1|site, data = beedatafocal, method="ML")
   
 )
 
@@ -2843,15 +3220,15 @@ sem4<-psem(
         data = beedatafocal, family = binomial),
   
   # effects of climate on flowers
-  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+  lme(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal),
+     random=~1|site, data = beedatafocal, method="ML"),
   
-  lm(prev_yr_total_flowers_z ~
+  lme(prev_yr_total_flowers_z ~
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal)
+     random=~1|site, data = beedatafocal, method="ML")
   
 )
 
@@ -2868,15 +3245,15 @@ sem5<-psem(
         data = beedatafocal, family = binomial),
   
   # effects of climate on flowers
-  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+  lme(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal),
+     random=~1|site, data = beedatafocal, method="ML"),
   
-  lm(prev_yr_total_flowers_z ~
+  lme(prev_yr_total_flowers_z ~
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal)
+     random=~1|site, data = beedatafocal, method="ML")
   
 )
 
@@ -2894,15 +3271,15 @@ sem6<-psem(
         data = beedatafocal, family = binomial),
   
   # effects of climate on flowers
-  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+  lme(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal),
+     random=~1|site, data = beedatafocal, method="ML"),
   
-  lm(prev_yr_total_flowers_z ~
+  lme(prev_yr_total_flowers_z ~
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal)
+     random=~1|site, data = beedatafocal, method="ML")
   
 )
 
@@ -2920,15 +3297,15 @@ sem7<-psem(
         data = beedatafocal, family = binomial),
   
   # effects of climate on flowers
-  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+  lme(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal),
+     random=~1|site, data = beedatafocal, method="ML"),
   
-  lm(prev_yr_total_flowers_z ~
+  lme(prev_yr_total_flowers_z ~
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal)
+     random=~1|site, data = beedatafocal, method="ML")
   
 )
 
@@ -2947,15 +3324,15 @@ sem8<-psem(
         data = beedatafocal, family = binomial),
   
   # effects of climate on flowers
-  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+  lme(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal),
+     random=~1|site, data = beedatafocal, method="ML"),
   
-  lm(prev_yr_total_flowers_z ~
+  lme(prev_yr_total_flowers_z ~
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal)
+     random=~1|site, data = beedatafocal, method="ML")
   
 )
 
@@ -2973,15 +3350,15 @@ sem9<-psem(
         data = beedatafocal, family = binomial),
   
   # effects of climate on flowers
-  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+  lme(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal),
+     random=~1|site, data = beedatafocal, method="ML"),
   
-  lm(prev_yr_total_flowers_z ~
+  lme(prev_yr_total_flowers_z ~
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal)
+     random=~1|site, data = beedatafocal, method="ML")
   
 )
 
@@ -2998,15 +3375,15 @@ sem10<-psem(
         data = beedatafocal, family = binomial),
   
   # effects of climate on flowers
-  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+  lme(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal),
+     random=~1|site, data = beedatafocal, method="ML"),
   
-  lm(prev_yr_total_flowers_z ~
+  lme(prev_yr_total_flowers_z ~
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal)
+     random=~1|site, data = beedatafocal, method="ML")
   
 )
 
@@ -3029,15 +3406,15 @@ sem11<-psem(
         data = beedatafocal, family = binomial),
   
   # effects of climate on flowers
-  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+  lme(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal),
+     random=~1|site, data = beedatafocal, method="ML"),
   
-  lm(prev_yr_total_flowers_z ~
+  lme(prev_yr_total_flowers_z ~
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal)
+     random=~1|site, data = beedatafocal, method="ML")
   
 )
 
@@ -3056,15 +3433,15 @@ sem12<-psem(
         data = beedatafocal, family = binomial),
   
   # effects of climate on flowers
-  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+  lme(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal),
+     random=~1|site, data = beedatafocal, method="ML"),
   
-  lm(prev_yr_total_flowers_z ~
+  lme(prev_yr_total_flowers_z ~
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal)
+     random=~1|site, data = beedatafocal, method="ML")
   
 )
 
@@ -3082,15 +3459,15 @@ sem13<-psem(
         data = beedatafocal, family = binomial),
   
   # effects of climate on flowers
-  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+  lme(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal),
+     random=~1|site, data = beedatafocal, method="ML"),
   
-  lm(prev_yr_total_flowers_z ~
+  lme(prev_yr_total_flowers_z ~
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal)
+     random=~1|site, data = beedatafocal, method="ML")
   
 )
 
@@ -3109,15 +3486,15 @@ sem14<-psem(
         data = beedatafocal, family = binomial),
   
   # effects of climate on flowers
-  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+  lme(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal),
+     random=~1|site, data = beedatafocal, method="ML"),
   
-  lm(prev_yr_total_flowers_z ~
+  lme(prev_yr_total_flowers_z ~
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal)
+     random=~1|site, data = beedatafocal, method="ML")
   
 )
 
@@ -3342,12 +3719,19 @@ render_graph(graph)
 
 ############## (4) Pseudopanurgus didirupa ################
 
-beedatafocal<-read.csv("focalbeedata_envdata_RMBLsexratios_2023-03-24.csv")
+beedatafocal<-read.csv("focalbeedata_envdata_RMBLsexratios_2023-03-29.csv")
 # subset to just include focal sites
 sitelist<-c("Almont","Almont Curve","Beaver","CDOT","Copper","Davids","Elko","Gothic","Hill","Little","Lypps","Mexican Cut","Rustlers","Seans","Tuttle","Willey")
 beedatafocal<-filter(beedatafocal, site %in% sitelist) 
+#beedatafocal<-filter(beedatafocal,year!=2016)
 
 beedatafocal<-filter(beedatafocal,genus_species=="Pseudopanurgus didirupa")
+length(unique(beedatafocal$year))
+
+# # just look at mid-elevation sites
+# siteinfo<-read.csv("site_info.csv")
+# beedatafocal<-left_join(beedatafocal,siteinfo,by="site")
+# beedatafocal<-filter(beedatafocal, elev_group=="Mid")
 
 ### (full) SEM: all prior year's climate and floral predictor variables 
 semFull<-psem(
@@ -3361,15 +3745,15 @@ semFull<-psem(
         data = beedatafocal, family = binomial),
   
   # effects of climate on flowers
-  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+  lme(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal),
+     random=~1|site, data = beedatafocal, method="ML"),
   
-  lm(prev_yr_total_flowers_z ~
+  lme(prev_yr_total_flowers_z ~
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal)
+     random=~1|site, data = beedatafocal, method="ML")
   
 )
 
@@ -3386,15 +3770,15 @@ sem1<-psem(
         data = beedatafocal, family = binomial),
   
   # effects of climate on flowers
-  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+  lme(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal),
+     random=~1|site, data = beedatafocal, method="ML"),
   
-  lm(prev_yr_total_flowers_z ~
+  lme(prev_yr_total_flowers_z ~
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal)
+     random=~1|site, data = beedatafocal, method="ML")
   
 )
 
@@ -3412,15 +3796,15 @@ sem2<-psem(
         data = beedatafocal, family = binomial),
   
   # effects of climate on flowers
-  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+  lme(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal),
+     random=~1|site, data = beedatafocal, method="ML"),
   
-  lm(prev_yr_total_flowers_z ~
+  lme(prev_yr_total_flowers_z ~
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal)
+     random=~1|site, data = beedatafocal, method="ML")
   
 )
 
@@ -3437,15 +3821,15 @@ sem3<-psem(
         data = beedatafocal, family = binomial),
   
   # effects of climate on flowers
-  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+  lme(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal),
+     random=~1|site, data = beedatafocal, method="ML"),
   
-  lm(prev_yr_total_flowers_z ~
+  lme(prev_yr_total_flowers_z ~
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal)
+     random=~1|site, data = beedatafocal, method="ML")
   
 )
 
@@ -3462,15 +3846,15 @@ sem4<-psem(
         data = beedatafocal, family = binomial),
   
   # effects of climate on flowers
-  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+  lme(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal),
+     random=~1|site, data = beedatafocal, method="ML"),
   
-  lm(prev_yr_total_flowers_z ~
+  lme(prev_yr_total_flowers_z ~
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal)
+     random=~1|site, data = beedatafocal, method="ML")
   
 )
 
@@ -3487,15 +3871,15 @@ sem5<-psem(
         data = beedatafocal, family = binomial),
   
   # effects of climate on flowers
-  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+  lme(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal),
+     random=~1|site, data = beedatafocal, method="ML"),
   
-  lm(prev_yr_total_flowers_z ~
+  lme(prev_yr_total_flowers_z ~
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal)
+     random=~1|site, data = beedatafocal, method="ML")
   
 )
 
@@ -3513,15 +3897,15 @@ sem6<-psem(
         data = beedatafocal, family = binomial),
   
   # effects of climate on flowers
-  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+  lme(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal),
+     random=~1|site, data = beedatafocal, method="ML"),
   
-  lm(prev_yr_total_flowers_z ~
+  lme(prev_yr_total_flowers_z ~
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal)
+     random=~1|site, data = beedatafocal, method="ML")
   
 )
 
@@ -3539,15 +3923,15 @@ sem7<-psem(
         data = beedatafocal, family = binomial),
   
   # effects of climate on flowers
-  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+  lme(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal),
+     random=~1|site, data = beedatafocal, method="ML"),
   
-  lm(prev_yr_total_flowers_z ~
+  lme(prev_yr_total_flowers_z ~
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal)
+     random=~1|site, data = beedatafocal, method="ML")
   
 )
 
@@ -3566,15 +3950,15 @@ sem8<-psem(
         data = beedatafocal, family = binomial),
   
   # effects of climate on flowers
-  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+  lme(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal),
+     random=~1|site, data = beedatafocal, method="ML"),
   
-  lm(prev_yr_total_flowers_z ~
+  lme(prev_yr_total_flowers_z ~
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal)
+     random=~1|site, data = beedatafocal, method="ML")
   
 )
 
@@ -3592,15 +3976,15 @@ sem9<-psem(
         data = beedatafocal, family = binomial),
   
   # effects of climate on flowers
-  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+  lme(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal),
+     random=~1|site, data = beedatafocal, method="ML"),
   
-  lm(prev_yr_total_flowers_z ~
+  lme(prev_yr_total_flowers_z ~
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal)
+     random=~1|site, data = beedatafocal, method="ML")
   
 )
 
@@ -3617,15 +4001,15 @@ sem10<-psem(
         data = beedatafocal, family = binomial),
   
   # effects of climate on flowers
-  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+  lme(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal),
+     random=~1|site, data = beedatafocal, method="ML"),
   
-  lm(prev_yr_total_flowers_z ~
+  lme(prev_yr_total_flowers_z ~
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal)
+     random=~1|site, data = beedatafocal, method="ML")
   
 )
 
@@ -3648,15 +4032,15 @@ sem11<-psem(
         data = beedatafocal, family = binomial),
   
   # effects of climate on flowers
-  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+  lme(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal),
+     random=~1|site, data = beedatafocal, method="ML"),
   
-  lm(prev_yr_total_flowers_z ~
+  lme(prev_yr_total_flowers_z ~
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal)
+     random=~1|site, data = beedatafocal, method="ML")
   
 )
 
@@ -3675,15 +4059,15 @@ sem12<-psem(
         data = beedatafocal, family = binomial),
   
   # effects of climate on flowers
-  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+  lme(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal),
+     random=~1|site, data = beedatafocal, method="ML"),
   
-  lm(prev_yr_total_flowers_z ~
+  lme(prev_yr_total_flowers_z ~
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal)
+     random=~1|site, data = beedatafocal, method="ML")
   
 )
 
@@ -3701,15 +4085,15 @@ sem13<-psem(
         data = beedatafocal, family = binomial),
   
   # effects of climate on flowers
-  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+  lme(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal),
+     random=~1|site, data = beedatafocal, method="ML"),
   
-  lm(prev_yr_total_flowers_z ~
+  lme(prev_yr_total_flowers_z ~
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal)
+     random=~1|site, data = beedatafocal, method="ML")
   
 )
 
@@ -3728,15 +4112,15 @@ sem14<-psem(
         data = beedatafocal, family = binomial),
   
   # effects of climate on flowers
-  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+  lme(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal),
+     random=~1|site, data = beedatafocal, method="ML"),
   
-  lm(prev_yr_total_flowers_z ~
+  lme(prev_yr_total_flowers_z ~
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal)
+     random=~1|site, data = beedatafocal, method="ML")
   
 )
 
@@ -3959,12 +4343,19 @@ render_graph(graph)
 
 ############## (5) Ceratina nanula ################
 
-beedatafocal<-read.csv("focalbeedata_envdata_RMBLsexratios_2023-03-24.csv")
+beedatafocal<-read.csv("focalbeedata_envdata_RMBLsexratios_2023-03-29.csv")
 # subset to just include focal sites
 sitelist<-c("Almont","Almont Curve","Beaver","CDOT","Copper","Davids","Elko","Gothic","Hill","Little","Lypps","Mexican Cut","Rustlers","Seans","Tuttle","Willey")
 beedatafocal<-filter(beedatafocal, site %in% sitelist) 
+#beedatafocal<-filter(beedatafocal,year!=2016)
 
 beedatafocal<-filter(beedatafocal,genus_species=="Ceratina nanula")
+length(unique(beedatafocal$year))
+
+# # just look at mid-elevation sites
+# siteinfo<-read.csv("site_info.csv")
+# beedatafocal<-left_join(beedatafocal,siteinfo,by="site")
+# beedatafocal<-filter(beedatafocal, elev_group=="Mid")
 
 ### (full) SEM: all prior year's climate and floral predictor variables 
 semFull<-psem(
@@ -3978,15 +4369,15 @@ semFull<-psem(
         data = beedatafocal, family = binomial),
   
   # effects of climate on flowers
-  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+  lme(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal),
+     random=~1|site, data = beedatafocal, method="ML"),
   
-  lm(prev_yr_total_flowers_z ~
+  lme(prev_yr_total_flowers_z ~
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal)
+     random=~1|site, data = beedatafocal, method="ML")
   
 )
 
@@ -4003,15 +4394,15 @@ sem1<-psem(
         data = beedatafocal, family = binomial),
   
   # effects of climate on flowers
-  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+  lme(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal),
+     random=~1|site, data = beedatafocal, method="ML"),
   
-  lm(prev_yr_total_flowers_z ~
+  lme(prev_yr_total_flowers_z ~
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal)
+     random=~1|site, data = beedatafocal, method="ML")
   
 )
 
@@ -4029,15 +4420,15 @@ sem2<-psem(
         data = beedatafocal, family = binomial),
   
   # effects of climate on flowers
-  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+  lme(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal),
+     random=~1|site, data = beedatafocal, method="ML"),
   
-  lm(prev_yr_total_flowers_z ~
+  lme(prev_yr_total_flowers_z ~
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal)
+     random=~1|site, data = beedatafocal, method="ML")
   
 )
 
@@ -4054,15 +4445,15 @@ sem3<-psem(
         data = beedatafocal, family = binomial),
   
   # effects of climate on flowers
-  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+  lme(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal),
+     random=~1|site, data = beedatafocal, method="ML"),
   
-  lm(prev_yr_total_flowers_z ~
+  lme(prev_yr_total_flowers_z ~
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal)
+     random=~1|site, data = beedatafocal, method="ML")
   
 )
 
@@ -4079,15 +4470,15 @@ sem4<-psem(
         data = beedatafocal, family = binomial),
   
   # effects of climate on flowers
-  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+  lme(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal),
+     random=~1|site, data = beedatafocal, method="ML"),
   
-  lm(prev_yr_total_flowers_z ~
+  lme(prev_yr_total_flowers_z ~
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal)
+     random=~1|site, data = beedatafocal, method="ML")
   
 )
 
@@ -4104,15 +4495,15 @@ sem5<-psem(
         data = beedatafocal, family = binomial),
   
   # effects of climate on flowers
-  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+  lme(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal),
+     random=~1|site, data = beedatafocal, method="ML"),
   
-  lm(prev_yr_total_flowers_z ~
+  lme(prev_yr_total_flowers_z ~
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal)
+     random=~1|site, data = beedatafocal, method="ML")
   
 )
 
@@ -4130,15 +4521,15 @@ sem6<-psem(
         data = beedatafocal, family = binomial),
   
   # effects of climate on flowers
-  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+  lme(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal),
+     random=~1|site, data = beedatafocal, method="ML"),
   
-  lm(prev_yr_total_flowers_z ~
+  lme(prev_yr_total_flowers_z ~
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal)
+     random=~1|site, data = beedatafocal, method="ML")
   
 )
 
@@ -4156,15 +4547,15 @@ sem7<-psem(
         data = beedatafocal, family = binomial),
   
   # effects of climate on flowers
-  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+  lme(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal),
+     random=~1|site, data = beedatafocal, method="ML"),
   
-  lm(prev_yr_total_flowers_z ~
+  lme(prev_yr_total_flowers_z ~
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal)
+     random=~1|site, data = beedatafocal, method="ML")
   
 )
 
@@ -4183,15 +4574,15 @@ sem8<-psem(
         data = beedatafocal, family = binomial),
   
   # effects of climate on flowers
-  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+  lme(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal),
+     random=~1|site, data = beedatafocal, method="ML"),
   
-  lm(prev_yr_total_flowers_z ~
+  lme(prev_yr_total_flowers_z ~
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal)
+     random=~1|site, data = beedatafocal, method="ML")
   
 )
 
@@ -4209,15 +4600,15 @@ sem9<-psem(
         data = beedatafocal, family = binomial),
   
   # effects of climate on flowers
-  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+  lme(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal),
+     random=~1|site, data = beedatafocal, method="ML"),
   
-  lm(prev_yr_total_flowers_z ~
+  lme(prev_yr_total_flowers_z ~
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal)
+     random=~1|site, data = beedatafocal, method="ML")
   
 )
 
@@ -4234,15 +4625,15 @@ sem10<-psem(
         data = beedatafocal, family = binomial),
   
   # effects of climate on flowers
-  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+  lme(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal),
+     random=~1|site, data = beedatafocal, method="ML"),
   
-  lm(prev_yr_total_flowers_z ~
+  lme(prev_yr_total_flowers_z ~
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal)
+     random=~1|site, data = beedatafocal, method="ML")
   
 )
 
@@ -4265,15 +4656,15 @@ sem11<-psem(
         data = beedatafocal, family = binomial),
   
   # effects of climate on flowers
-  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+  lme(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal),
+     random=~1|site, data = beedatafocal, method="ML"),
   
-  lm(prev_yr_total_flowers_z ~
+  lme(prev_yr_total_flowers_z ~
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal)
+     random=~1|site, data = beedatafocal, method="ML")
   
 )
 
@@ -4292,15 +4683,15 @@ sem12<-psem(
         data = beedatafocal, family = binomial),
   
   # effects of climate on flowers
-  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+  lme(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal),
+     random=~1|site, data = beedatafocal, method="ML"),
   
-  lm(prev_yr_total_flowers_z ~
+  lme(prev_yr_total_flowers_z ~
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal)
+     random=~1|site, data = beedatafocal, method="ML")
   
 )
 
@@ -4318,15 +4709,15 @@ sem13<-psem(
         data = beedatafocal, family = binomial),
   
   # effects of climate on flowers
-  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+  lme(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal),
+     random=~1|site, data = beedatafocal, method="ML"),
   
-  lm(prev_yr_total_flowers_z ~
+  lme(prev_yr_total_flowers_z ~
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal)
+     random=~1|site, data = beedatafocal, method="ML")
   
 )
 
@@ -4345,15 +4736,15 @@ sem14<-psem(
         data = beedatafocal, family = binomial),
   
   # effects of climate on flowers
-  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+  lme(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal),
+     random=~1|site, data = beedatafocal, method="ML"),
   
-  lm(prev_yr_total_flowers_z ~
+  lme(prev_yr_total_flowers_z ~
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal)
+     random=~1|site, data = beedatafocal, method="ML")
   
 )
 
@@ -4578,12 +4969,19 @@ render_graph(graph)
 
 ############## (6) Hylaeus annulatus ################
 
-beedatafocal<-read.csv("focalbeedata_envdata_RMBLsexratios_2023-03-24.csv")
+beedatafocal<-read.csv("focalbeedata_envdata_RMBLsexratios_2023-03-29.csv")
 # subset to just include focal sites
 sitelist<-c("Almont","Almont Curve","Beaver","CDOT","Copper","Davids","Elko","Gothic","Hill","Little","Lypps","Mexican Cut","Rustlers","Seans","Tuttle","Willey")
 beedatafocal<-filter(beedatafocal, site %in% sitelist) 
+#beedatafocal<-filter(beedatafocal,year!=2016)
 
 beedatafocal<-filter(beedatafocal,genus_species=="Hylaeus annulatus")
+length(unique(beedatafocal$year))
+
+# # just look at mid-elevation sites
+# siteinfo<-read.csv("site_info.csv")
+# beedatafocal<-left_join(beedatafocal,siteinfo,by="site")
+# beedatafocal<-filter(beedatafocal, elev_group=="Mid")
 
 ### (full) SEM: all prior year's climate and floral predictor variables 
 semFull<-psem(
@@ -4597,15 +4995,15 @@ semFull<-psem(
         data = beedatafocal, family = binomial),
   
   # effects of climate on flowers
-  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+  lme(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal),
+     random=~1|site, data = beedatafocal, method="ML"),
   
-  lm(prev_yr_total_flowers_z ~
+  lme(prev_yr_total_flowers_z ~
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal)
+     random=~1|site, data = beedatafocal, method="ML")
   
 )
 
@@ -4622,15 +5020,15 @@ sem1<-psem(
         data = beedatafocal, family = binomial),
   
   # effects of climate on flowers
-  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+  lme(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal),
+     random=~1|site, data = beedatafocal, method="ML"),
   
-  lm(prev_yr_total_flowers_z ~
+  lme(prev_yr_total_flowers_z ~
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal)
+     random=~1|site, data = beedatafocal, method="ML")
   
 )
 
@@ -4648,15 +5046,15 @@ sem2<-psem(
         data = beedatafocal, family = binomial),
   
   # effects of climate on flowers
-  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+  lme(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal),
+     random=~1|site, data = beedatafocal, method="ML"),
   
-  lm(prev_yr_total_flowers_z ~
+  lme(prev_yr_total_flowers_z ~
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal)
+     random=~1|site, data = beedatafocal, method="ML")
   
 )
 
@@ -4673,15 +5071,15 @@ sem3<-psem(
         data = beedatafocal, family = binomial),
   
   # effects of climate on flowers
-  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+  lme(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal),
+     random=~1|site, data = beedatafocal, method="ML"),
   
-  lm(prev_yr_total_flowers_z ~
+  lme(prev_yr_total_flowers_z ~
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal)
+     random=~1|site, data = beedatafocal, method="ML")
   
 )
 
@@ -4698,15 +5096,15 @@ sem4<-psem(
         data = beedatafocal, family = binomial),
   
   # effects of climate on flowers
-  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+  lme(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal),
+     random=~1|site, data = beedatafocal, method="ML"),
   
-  lm(prev_yr_total_flowers_z ~
+  lme(prev_yr_total_flowers_z ~
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal)
+     random=~1|site, data = beedatafocal, method="ML")
   
 )
 
@@ -4723,15 +5121,15 @@ sem5<-psem(
         data = beedatafocal, family = binomial),
   
   # effects of climate on flowers
-  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+  lme(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal),
+     random=~1|site, data = beedatafocal, method="ML"),
   
-  lm(prev_yr_total_flowers_z ~
+  lme(prev_yr_total_flowers_z ~
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal)
+     random=~1|site, data = beedatafocal, method="ML")
   
 )
 
@@ -4749,15 +5147,15 @@ sem6<-psem(
         data = beedatafocal, family = binomial),
   
   # effects of climate on flowers
-  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+  lme(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal),
+     random=~1|site, data = beedatafocal, method="ML"),
   
-  lm(prev_yr_total_flowers_z ~
+  lme(prev_yr_total_flowers_z ~
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal)
+     random=~1|site, data = beedatafocal, method="ML")
   
 )
 
@@ -4775,15 +5173,15 @@ sem7<-psem(
         data = beedatafocal, family = binomial),
   
   # effects of climate on flowers
-  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+  lme(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal),
+     random=~1|site, data = beedatafocal, method="ML"),
   
-  lm(prev_yr_total_flowers_z ~
+  lme(prev_yr_total_flowers_z ~
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal)
+     random=~1|site, data = beedatafocal, method="ML")
   
 )
 
@@ -4802,15 +5200,15 @@ sem8<-psem(
         data = beedatafocal, family = binomial),
   
   # effects of climate on flowers
-  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+  lme(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal),
+     random=~1|site, data = beedatafocal, method="ML"),
   
-  lm(prev_yr_total_flowers_z ~
+  lme(prev_yr_total_flowers_z ~
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal)
+     random=~1|site, data = beedatafocal, method="ML")
   
 )
 
@@ -4828,15 +5226,15 @@ sem9<-psem(
         data = beedatafocal, family = binomial),
   
   # effects of climate on flowers
-  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+  lme(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal),
+     random=~1|site, data = beedatafocal, method="ML"),
   
-  lm(prev_yr_total_flowers_z ~
+  lme(prev_yr_total_flowers_z ~
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal)
+     random=~1|site, data = beedatafocal, method="ML")
   
 )
 
@@ -4853,15 +5251,15 @@ sem10<-psem(
         data = beedatafocal, family = binomial),
   
   # effects of climate on flowers
-  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+  lme(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal),
+     random=~1|site, data = beedatafocal, method="ML"),
   
-  lm(prev_yr_total_flowers_z ~
+  lme(prev_yr_total_flowers_z ~
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal)
+     random=~1|site, data = beedatafocal, method="ML")
   
 )
 
@@ -4884,15 +5282,15 @@ sem11<-psem(
         data = beedatafocal, family = binomial),
   
   # effects of climate on flowers
-  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+  lme(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal),
+     random=~1|site, data = beedatafocal, method="ML"),
   
-  lm(prev_yr_total_flowers_z ~
+  lme(prev_yr_total_flowers_z ~
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal)
+     random=~1|site, data = beedatafocal, method="ML")
   
 )
 
@@ -4911,15 +5309,15 @@ sem12<-psem(
         data = beedatafocal, family = binomial),
   
   # effects of climate on flowers
-  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+  lme(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal),
+     random=~1|site, data = beedatafocal, method="ML"),
   
-  lm(prev_yr_total_flowers_z ~
+  lme(prev_yr_total_flowers_z ~
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal)
+     random=~1|site, data = beedatafocal, method="ML")
   
 )
 
@@ -4937,15 +5335,15 @@ sem13<-psem(
         data = beedatafocal, family = binomial),
   
   # effects of climate on flowers
-  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+  lme(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal),
+     random=~1|site, data = beedatafocal, method="ML"),
   
-  lm(prev_yr_total_flowers_z ~
+  lme(prev_yr_total_flowers_z ~
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal)
+     random=~1|site, data = beedatafocal, method="ML")
   
 )
 
@@ -4964,15 +5362,15 @@ sem14<-psem(
         data = beedatafocal, family = binomial),
   
   # effects of climate on flowers
-  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+  lme(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal),
+     random=~1|site, data = beedatafocal, method="ML"),
   
-  lm(prev_yr_total_flowers_z ~
+  lme(prev_yr_total_flowers_z ~
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal)
+     random=~1|site, data = beedatafocal, method="ML")
   
 )
 
@@ -5066,12 +5464,19 @@ summary(sem14, .progressBar = F)
 
 ############## (7) Agapostemon texanus ################
 
-beedatafocal<-read.csv("focalbeedata_envdata_RMBLsexratios_2023-03-24.csv")
+beedatafocal<-read.csv("focalbeedata_envdata_RMBLsexratios_2023-03-29.csv")
 # subset to just include focal sites
 sitelist<-c("Almont","Almont Curve","Beaver","CDOT","Copper","Davids","Elko","Gothic","Hill","Little","Lypps","Mexican Cut","Rustlers","Seans","Tuttle","Willey")
 beedatafocal<-filter(beedatafocal, site %in% sitelist) 
+#beedatafocal<-filter(beedatafocal,year!=2016)
 
 beedatafocal<-filter(beedatafocal,genus_species=="Agapostemon texanus")
+length(unique(beedatafocal$year))
+
+# # just look at mid-elevation sites
+# siteinfo<-read.csv("site_info.csv")
+# beedatafocal<-left_join(beedatafocal,siteinfo,by="site")
+# beedatafocal<-filter(beedatafocal, elev_group=="Mid")
 
 ### (full) SEM: all prior year's climate and floral predictor variables 
 semFull<-psem(
@@ -5085,15 +5490,15 @@ semFull<-psem(
         data = beedatafocal, family = binomial),
   
   # effects of climate on flowers
-  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+  lme(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal),
+     random=~1|site, data = beedatafocal, method="ML"),
   
-  lm(prev_yr_total_flowers_z ~
+  lme(prev_yr_total_flowers_z ~
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal)
+     random=~1|site, data = beedatafocal, method="ML")
   
 )
 
@@ -5110,15 +5515,15 @@ sem1<-psem(
         data = beedatafocal, family = binomial),
   
   # effects of climate on flowers
-  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+  lme(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal),
+     random=~1|site, data = beedatafocal, method="ML"),
   
-  lm(prev_yr_total_flowers_z ~
+  lme(prev_yr_total_flowers_z ~
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal)
+     random=~1|site, data = beedatafocal, method="ML")
   
 )
 
@@ -5136,15 +5541,15 @@ sem2<-psem(
         data = beedatafocal, family = binomial),
   
   # effects of climate on flowers
-  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+  lme(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal),
+     random=~1|site, data = beedatafocal, method="ML"),
   
-  lm(prev_yr_total_flowers_z ~
+  lme(prev_yr_total_flowers_z ~
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal)
+     random=~1|site, data = beedatafocal, method="ML")
   
 )
 
@@ -5161,15 +5566,15 @@ sem3<-psem(
         data = beedatafocal, family = binomial),
   
   # effects of climate on flowers
-  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+  lme(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal),
+     random=~1|site, data = beedatafocal, method="ML"),
   
-  lm(prev_yr_total_flowers_z ~
+  lme(prev_yr_total_flowers_z ~
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal)
+     random=~1|site, data = beedatafocal, method="ML")
   
 )
 
@@ -5186,15 +5591,15 @@ sem4<-psem(
         data = beedatafocal, family = binomial),
   
   # effects of climate on flowers
-  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+  lme(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal),
+     random=~1|site, data = beedatafocal, method="ML"),
   
-  lm(prev_yr_total_flowers_z ~
+  lme(prev_yr_total_flowers_z ~
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal)
+     random=~1|site, data = beedatafocal, method="ML")
   
 )
 
@@ -5211,15 +5616,15 @@ sem5<-psem(
         data = beedatafocal, family = binomial),
   
   # effects of climate on flowers
-  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+  lme(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal),
+     random=~1|site, data = beedatafocal, method="ML"),
   
-  lm(prev_yr_total_flowers_z ~
+  lme(prev_yr_total_flowers_z ~
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal)
+     random=~1|site, data = beedatafocal, method="ML")
   
 )
 
@@ -5237,15 +5642,15 @@ sem6<-psem(
         data = beedatafocal, family = binomial),
   
   # effects of climate on flowers
-  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+  lme(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal),
+     random=~1|site, data = beedatafocal, method="ML"),
   
-  lm(prev_yr_total_flowers_z ~
+  lme(prev_yr_total_flowers_z ~
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal)
+     random=~1|site, data = beedatafocal, method="ML")
   
 )
 
@@ -5263,15 +5668,15 @@ sem7<-psem(
         data = beedatafocal, family = binomial),
   
   # effects of climate on flowers
-  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+  lme(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal),
+     random=~1|site, data = beedatafocal, method="ML"),
   
-  lm(prev_yr_total_flowers_z ~
+  lme(prev_yr_total_flowers_z ~
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal)
+     random=~1|site, data = beedatafocal, method="ML")
   
 )
 
@@ -5290,15 +5695,15 @@ sem8<-psem(
         data = beedatafocal, family = binomial),
   
   # effects of climate on flowers
-  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+  lme(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal),
+     random=~1|site, data = beedatafocal, method="ML"),
   
-  lm(prev_yr_total_flowers_z ~
+  lme(prev_yr_total_flowers_z ~
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal)
+     random=~1|site, data = beedatafocal, method="ML")
   
 )
 
@@ -5316,15 +5721,15 @@ sem9<-psem(
         data = beedatafocal, family = binomial),
   
   # effects of climate on flowers
-  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+  lme(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal),
+     random=~1|site, data = beedatafocal, method="ML"),
   
-  lm(prev_yr_total_flowers_z ~
+  lme(prev_yr_total_flowers_z ~
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal)
+     random=~1|site, data = beedatafocal, method="ML")
   
 )
 
@@ -5341,15 +5746,15 @@ sem10<-psem(
         data = beedatafocal, family = binomial),
   
   # effects of climate on flowers
-  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+  lme(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal),
+     random=~1|site, data = beedatafocal, method="ML"),
   
-  lm(prev_yr_total_flowers_z ~
+  lme(prev_yr_total_flowers_z ~
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal)
+     random=~1|site, data = beedatafocal, method="ML")
   
 )
 
@@ -5372,15 +5777,15 @@ sem11<-psem(
         data = beedatafocal, family = binomial),
   
   # effects of climate on flowers
-  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+  lme(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal),
+     random=~1|site, data = beedatafocal, method="ML"),
   
-  lm(prev_yr_total_flowers_z ~
+  lme(prev_yr_total_flowers_z ~
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal)
+     random=~1|site, data = beedatafocal, method="ML")
   
 )
 
@@ -5399,15 +5804,15 @@ sem12<-psem(
         data = beedatafocal, family = binomial),
   
   # effects of climate on flowers
-  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+  lme(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal),
+     random=~1|site, data = beedatafocal, method="ML"),
   
-  lm(prev_yr_total_flowers_z ~
+  lme(prev_yr_total_flowers_z ~
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal)
+     random=~1|site, data = beedatafocal, method="ML")
   
 )
 
@@ -5425,15 +5830,15 @@ sem13<-psem(
         data = beedatafocal, family = binomial),
   
   # effects of climate on flowers
-  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+  lme(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal),
+     random=~1|site, data = beedatafocal, method="ML"),
   
-  lm(prev_yr_total_flowers_z ~
+  lme(prev_yr_total_flowers_z ~
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal)
+     random=~1|site, data = beedatafocal, method="ML")
   
 )
 
@@ -5452,15 +5857,15 @@ sem14<-psem(
         data = beedatafocal, family = binomial),
   
   # effects of climate on flowers
-  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+  lme(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal),
+     random=~1|site, data = beedatafocal, method="ML"),
   
-  lm(prev_yr_total_flowers_z ~
+  lme(prev_yr_total_flowers_z ~
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal)
+     random=~1|site, data = beedatafocal, method="ML")
   
 )
 
@@ -5686,12 +6091,19 @@ render_graph(graph)
 
 ############## (8) Dufourea harveyi ################
 
-beedatafocal<-read.csv("focalbeedata_envdata_RMBLsexratios_2023-03-24.csv")
+beedatafocal<-read.csv("focalbeedata_envdata_RMBLsexratios_2023-03-29.csv")
 # subset to just include focal sites
 sitelist<-c("Almont","Almont Curve","Beaver","CDOT","Copper","Davids","Elko","Gothic","Hill","Little","Lypps","Mexican Cut","Rustlers","Seans","Tuttle","Willey")
 beedatafocal<-filter(beedatafocal, site %in% sitelist) 
+#beedatafocal<-filter(beedatafocal,year!=2016)
 
 beedatafocal<-filter(beedatafocal,genus_species=="Dufourea harveyi")
+length(unique(beedatafocal$year))
+
+# # just look at mid-elevation sites
+# siteinfo<-read.csv("site_info.csv")
+# beedatafocal<-left_join(beedatafocal,siteinfo,by="site")
+# beedatafocal<-filter(beedatafocal, elev_group=="Mid")
 
 ### (full) SEM: all prior year's climate and floral predictor variables 
 semFull<-psem(
@@ -5705,15 +6117,15 @@ semFull<-psem(
         data = beedatafocal, family = binomial),
   
   # effects of climate on flowers
-  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+  lme(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal),
+     random=~1|site, data = beedatafocal, method="ML"),
   
-  lm(prev_yr_total_flowers_z ~
+  lme(prev_yr_total_flowers_z ~
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal)
+     random=~1|site, data = beedatafocal, method="ML")
   
 )
 
@@ -5730,15 +6142,15 @@ sem1<-psem(
         data = beedatafocal, family = binomial),
   
   # effects of climate on flowers
-  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+  lme(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal),
+     random=~1|site, data = beedatafocal, method="ML"),
   
-  lm(prev_yr_total_flowers_z ~
+  lme(prev_yr_total_flowers_z ~
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal)
+     random=~1|site, data = beedatafocal, method="ML")
   
 )
 
@@ -5756,15 +6168,15 @@ sem2<-psem(
         data = beedatafocal, family = binomial),
   
   # effects of climate on flowers
-  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+  lme(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal),
+     random=~1|site, data = beedatafocal, method="ML"),
   
-  lm(prev_yr_total_flowers_z ~
+  lme(prev_yr_total_flowers_z ~
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal)
+     random=~1|site, data = beedatafocal, method="ML")
   
 )
 
@@ -5781,15 +6193,15 @@ sem3<-psem(
         data = beedatafocal, family = binomial),
   
   # effects of climate on flowers
-  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+  lme(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal),
+     random=~1|site, data = beedatafocal, method="ML"),
   
-  lm(prev_yr_total_flowers_z ~
+  lme(prev_yr_total_flowers_z ~
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal)
+     random=~1|site, data = beedatafocal, method="ML")
   
 )
 
@@ -5806,15 +6218,15 @@ sem4<-psem(
         data = beedatafocal, family = binomial),
   
   # effects of climate on flowers
-  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+  lme(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal),
+     random=~1|site, data = beedatafocal, method="ML"),
   
-  lm(prev_yr_total_flowers_z ~
+  lme(prev_yr_total_flowers_z ~
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal)
+     random=~1|site, data = beedatafocal, method="ML")
   
 )
 
@@ -5831,15 +6243,15 @@ sem5<-psem(
         data = beedatafocal, family = binomial),
   
   # effects of climate on flowers
-  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+  lme(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal),
+     random=~1|site, data = beedatafocal, method="ML"),
   
-  lm(prev_yr_total_flowers_z ~
+  lme(prev_yr_total_flowers_z ~
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal)
+     random=~1|site, data = beedatafocal, method="ML")
   
 )
 
@@ -5857,15 +6269,15 @@ sem6<-psem(
         data = beedatafocal, family = binomial),
   
   # effects of climate on flowers
-  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+  lme(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal),
+     random=~1|site, data = beedatafocal, method="ML"),
   
-  lm(prev_yr_total_flowers_z ~
+  lme(prev_yr_total_flowers_z ~
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal)
+     random=~1|site, data = beedatafocal, method="ML")
   
 )
 
@@ -5883,15 +6295,15 @@ sem7<-psem(
         data = beedatafocal, family = binomial),
   
   # effects of climate on flowers
-  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+  lme(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal),
+     random=~1|site, data = beedatafocal, method="ML"),
   
-  lm(prev_yr_total_flowers_z ~
+  lme(prev_yr_total_flowers_z ~
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal)
+     random=~1|site, data = beedatafocal, method="ML")
   
 )
 
@@ -5910,15 +6322,15 @@ sem8<-psem(
         data = beedatafocal, family = binomial),
   
   # effects of climate on flowers
-  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+  lme(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal),
+     random=~1|site, data = beedatafocal, method="ML"),
   
-  lm(prev_yr_total_flowers_z ~
+  lme(prev_yr_total_flowers_z ~
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal)
+     random=~1|site, data = beedatafocal, method="ML")
   
 )
 
@@ -5936,15 +6348,15 @@ sem9<-psem(
         data = beedatafocal, family = binomial),
   
   # effects of climate on flowers
-  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+  lme(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal),
+     random=~1|site, data = beedatafocal, method="ML"),
   
-  lm(prev_yr_total_flowers_z ~
+  lme(prev_yr_total_flowers_z ~
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal)
+     random=~1|site, data = beedatafocal, method="ML")
   
 )
 
@@ -5961,15 +6373,15 @@ sem10<-psem(
         data = beedatafocal, family = binomial),
   
   # effects of climate on flowers
-  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+  lme(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal),
+     random=~1|site, data = beedatafocal, method="ML"),
   
-  lm(prev_yr_total_flowers_z ~
+  lme(prev_yr_total_flowers_z ~
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal)
+     random=~1|site, data = beedatafocal, method="ML")
   
 )
 
@@ -5992,15 +6404,15 @@ sem11<-psem(
         data = beedatafocal, family = binomial),
   
   # effects of climate on flowers
-  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+  lme(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal),
+     random=~1|site, data = beedatafocal, method="ML"),
   
-  lm(prev_yr_total_flowers_z ~
+  lme(prev_yr_total_flowers_z ~
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal)
+     random=~1|site, data = beedatafocal, method="ML")
   
 )
 
@@ -6019,15 +6431,15 @@ sem12<-psem(
         data = beedatafocal, family = binomial),
   
   # effects of climate on flowers
-  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+  lme(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal),
+     random=~1|site, data = beedatafocal, method="ML"),
   
-  lm(prev_yr_total_flowers_z ~
+  lme(prev_yr_total_flowers_z ~
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal)
+     random=~1|site, data = beedatafocal, method="ML")
   
 )
 
@@ -6045,15 +6457,15 @@ sem13<-psem(
         data = beedatafocal, family = binomial),
   
   # effects of climate on flowers
-  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+  lme(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal),
+     random=~1|site, data = beedatafocal, method="ML"),
   
-  lm(prev_yr_total_flowers_z ~
+  lme(prev_yr_total_flowers_z ~
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal)
+     random=~1|site, data = beedatafocal, method="ML")
   
 )
 
@@ -6072,15 +6484,15 @@ sem14<-psem(
         data = beedatafocal, family = binomial),
   
   # effects of climate on flowers
-  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+  lme(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal),
+     random=~1|site, data = beedatafocal, method="ML"),
   
-  lm(prev_yr_total_flowers_z ~
+  lme(prev_yr_total_flowers_z ~
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal)
+     random=~1|site, data = beedatafocal, method="ML")
   
 )
 
@@ -6310,12 +6722,19 @@ render_graph(graph)
 
 ############## (9) Halictus rubicundus ################
 
-beedatafocal<-read.csv("focalbeedata_envdata_RMBLsexratios_2023-03-24.csv")
+beedatafocal<-read.csv("focalbeedata_envdata_RMBLsexratios_2023-03-29.csv")
 # subset to just include focal sites
 sitelist<-c("Almont","Almont Curve","Beaver","CDOT","Copper","Davids","Elko","Gothic","Hill","Little","Lypps","Mexican Cut","Rustlers","Seans","Tuttle","Willey")
 beedatafocal<-filter(beedatafocal, site %in% sitelist) 
+#beedatafocal<-filter(beedatafocal,year!=2016)
 
 beedatafocal<-filter(beedatafocal,genus_species=="Halictus rubicundus")
+length(unique(beedatafocal$year))
+
+# # just look at mid-elevation sites
+# siteinfo<-read.csv("site_info.csv")
+# beedatafocal<-left_join(beedatafocal,siteinfo,by="site")
+# beedatafocal<-filter(beedatafocal, elev_group=="Mid")
 
 ### (full) SEM: all prior year's climate and floral predictor variables 
 semFull<-psem(
@@ -6329,15 +6748,15 @@ semFull<-psem(
         data = beedatafocal, family = binomial),
   
   # effects of climate on flowers
-  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+  lme(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal),
+     random=~1|site, data = beedatafocal, method="ML"),
   
-  lm(prev_yr_total_flowers_z ~
+  lme(prev_yr_total_flowers_z ~
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal)
+     random=~1|site, data = beedatafocal, method="ML")
   
 )
 
@@ -6354,15 +6773,15 @@ sem1<-psem(
         data = beedatafocal, family = binomial),
   
   # effects of climate on flowers
-  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+  lme(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal),
+     random=~1|site, data = beedatafocal, method="ML"),
   
-  lm(prev_yr_total_flowers_z ~
+  lme(prev_yr_total_flowers_z ~
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal)
+     random=~1|site, data = beedatafocal, method="ML")
   
 )
 
@@ -6380,15 +6799,15 @@ sem2<-psem(
         data = beedatafocal, family = binomial),
   
   # effects of climate on flowers
-  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+  lme(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal),
+     random=~1|site, data = beedatafocal, method="ML"),
   
-  lm(prev_yr_total_flowers_z ~
+  lme(prev_yr_total_flowers_z ~
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal)
+     random=~1|site, data = beedatafocal, method="ML")
   
 )
 
@@ -6405,15 +6824,15 @@ sem3<-psem(
         data = beedatafocal, family = binomial),
   
   # effects of climate on flowers
-  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+  lme(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal),
+     random=~1|site, data = beedatafocal, method="ML"),
   
-  lm(prev_yr_total_flowers_z ~
+  lme(prev_yr_total_flowers_z ~
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal)
+     random=~1|site, data = beedatafocal, method="ML")
   
 )
 
@@ -6430,15 +6849,15 @@ sem4<-psem(
         data = beedatafocal, family = binomial),
   
   # effects of climate on flowers
-  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+  lme(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal),
+     random=~1|site, data = beedatafocal, method="ML"),
   
-  lm(prev_yr_total_flowers_z ~
+  lme(prev_yr_total_flowers_z ~
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal)
+     random=~1|site, data = beedatafocal, method="ML")
   
 )
 
@@ -6455,15 +6874,15 @@ sem5<-psem(
         data = beedatafocal, family = binomial),
   
   # effects of climate on flowers
-  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+  lme(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal),
+     random=~1|site, data = beedatafocal, method="ML"),
   
-  lm(prev_yr_total_flowers_z ~
+  lme(prev_yr_total_flowers_z ~
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal)
+     random=~1|site, data = beedatafocal, method="ML")
   
 )
 
@@ -6481,15 +6900,15 @@ sem6<-psem(
         data = beedatafocal, family = binomial),
   
   # effects of climate on flowers
-  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+  lme(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal),
+     random=~1|site, data = beedatafocal, method="ML"),
   
-  lm(prev_yr_total_flowers_z ~
+  lme(prev_yr_total_flowers_z ~
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal)
+     random=~1|site, data = beedatafocal, method="ML")
   
 )
 
@@ -6507,15 +6926,15 @@ sem7<-psem(
         data = beedatafocal, family = binomial),
   
   # effects of climate on flowers
-  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+  lme(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal),
+     random=~1|site, data = beedatafocal, method="ML"),
   
-  lm(prev_yr_total_flowers_z ~
+  lme(prev_yr_total_flowers_z ~
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal)
+     random=~1|site, data = beedatafocal, method="ML")
   
 )
 
@@ -6534,15 +6953,15 @@ sem8<-psem(
         data = beedatafocal, family = binomial),
   
   # effects of climate on flowers
-  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+  lme(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal),
+     random=~1|site, data = beedatafocal, method="ML"),
   
-  lm(prev_yr_total_flowers_z ~
+  lme(prev_yr_total_flowers_z ~
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal)
+     random=~1|site, data = beedatafocal, method="ML")
   
 )
 
@@ -6560,15 +6979,15 @@ sem9<-psem(
         data = beedatafocal, family = binomial),
   
   # effects of climate on flowers
-  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+  lme(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal),
+     random=~1|site, data = beedatafocal, method="ML"),
   
-  lm(prev_yr_total_flowers_z ~
+  lme(prev_yr_total_flowers_z ~
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal)
+     random=~1|site, data = beedatafocal, method="ML")
   
 )
 
@@ -6585,15 +7004,15 @@ sem10<-psem(
         data = beedatafocal, family = binomial),
   
   # effects of climate on flowers
-  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+  lme(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal),
+     random=~1|site, data = beedatafocal, method="ML"),
   
-  lm(prev_yr_total_flowers_z ~
+  lme(prev_yr_total_flowers_z ~
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal)
+     random=~1|site, data = beedatafocal, method="ML")
   
 )
 
@@ -6616,15 +7035,15 @@ sem11<-psem(
         data = beedatafocal, family = binomial),
   
   # effects of climate on flowers
-  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+  lme(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal),
+     random=~1|site, data = beedatafocal, method="ML"),
   
-  lm(prev_yr_total_flowers_z ~
+  lme(prev_yr_total_flowers_z ~
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal)
+     random=~1|site, data = beedatafocal, method="ML")
   
 )
 
@@ -6643,15 +7062,15 @@ sem12<-psem(
         data = beedatafocal, family = binomial),
   
   # effects of climate on flowers
-  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+  lme(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal),
+     random=~1|site, data = beedatafocal, method="ML"),
   
-  lm(prev_yr_total_flowers_z ~
+  lme(prev_yr_total_flowers_z ~
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal)
+     random=~1|site, data = beedatafocal, method="ML")
   
 )
 
@@ -6669,15 +7088,15 @@ sem13<-psem(
         data = beedatafocal, family = binomial),
   
   # effects of climate on flowers
-  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+  lme(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal),
+     random=~1|site, data = beedatafocal, method="ML"),
   
-  lm(prev_yr_total_flowers_z ~
+  lme(prev_yr_total_flowers_z ~
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal)
+     random=~1|site, data = beedatafocal, method="ML")
   
 )
 
@@ -6696,15 +7115,15 @@ sem14<-psem(
         data = beedatafocal, family = binomial),
   
   # effects of climate on flowers
-  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+  lme(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal),
+     random=~1|site, data = beedatafocal, method="ML"),
   
-  lm(prev_yr_total_flowers_z ~
+  lme(prev_yr_total_flowers_z ~
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal)
+     random=~1|site, data = beedatafocal, method="ML")
   
 )
 
@@ -6928,12 +7347,19 @@ render_graph(graph)
 
 ############## (10) Halictus virgatellus ################
 
-beedatafocal<-read.csv("focalbeedata_envdata_RMBLsexratios_2023-03-24.csv")
+beedatafocal<-read.csv("focalbeedata_envdata_RMBLsexratios_2023-03-29.csv")
 # subset to just include focal sites
 sitelist<-c("Almont","Almont Curve","Beaver","CDOT","Copper","Davids","Elko","Gothic","Hill","Little","Lypps","Mexican Cut","Rustlers","Seans","Tuttle","Willey")
 beedatafocal<-filter(beedatafocal, site %in% sitelist) 
+#beedatafocal<-filter(beedatafocal,year!=2016)
 
 beedatafocal<-filter(beedatafocal,genus_species=="Halictus virgatellus")
+length(unique(beedatafocal$year))
+
+# # just look at mid-elevation sites
+# siteinfo<-read.csv("site_info.csv")
+# beedatafocal<-left_join(beedatafocal,siteinfo,by="site")
+# beedatafocal<-filter(beedatafocal, elev_group=="Mid")
 
 ### (full) SEM: all prior year's climate and floral predictor variables 
 semFull<-psem(
@@ -6947,15 +7373,15 @@ semFull<-psem(
         data = beedatafocal, family = binomial),
   
   # effects of climate on flowers
-  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+  lme(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal),
+     random=~1|site, data = beedatafocal, method="ML"),
   
-  lm(prev_yr_total_flowers_z ~
+  lme(prev_yr_total_flowers_z ~
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal)
+     random=~1|site, data = beedatafocal, method="ML")
   
 )
 
@@ -6972,15 +7398,15 @@ sem1<-psem(
         data = beedatafocal, family = binomial),
   
   # effects of climate on flowers
-  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+  lme(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal),
+     random=~1|site, data = beedatafocal, method="ML"),
   
-  lm(prev_yr_total_flowers_z ~
+  lme(prev_yr_total_flowers_z ~
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal)
+     random=~1|site, data = beedatafocal, method="ML")
   
 )
 
@@ -6998,15 +7424,15 @@ sem2<-psem(
         data = beedatafocal, family = binomial),
   
   # effects of climate on flowers
-  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+  lme(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal),
+     random=~1|site, data = beedatafocal, method="ML"),
   
-  lm(prev_yr_total_flowers_z ~
+  lme(prev_yr_total_flowers_z ~
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal)
+     random=~1|site, data = beedatafocal, method="ML")
   
 )
 
@@ -7023,15 +7449,15 @@ sem3<-psem(
         data = beedatafocal, family = binomial),
   
   # effects of climate on flowers
-  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+  lme(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal),
+     random=~1|site, data = beedatafocal, method="ML"),
   
-  lm(prev_yr_total_flowers_z ~
+  lme(prev_yr_total_flowers_z ~
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal)
+     random=~1|site, data = beedatafocal, method="ML")
   
 )
 
@@ -7048,15 +7474,15 @@ sem4<-psem(
         data = beedatafocal, family = binomial),
   
   # effects of climate on flowers
-  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+  lme(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal),
+     random=~1|site, data = beedatafocal, method="ML"),
   
-  lm(prev_yr_total_flowers_z ~
+  lme(prev_yr_total_flowers_z ~
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal)
+     random=~1|site, data = beedatafocal, method="ML")
   
 )
 
@@ -7073,15 +7499,15 @@ sem5<-psem(
         data = beedatafocal, family = binomial),
   
   # effects of climate on flowers
-  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+  lme(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal),
+     random=~1|site, data = beedatafocal, method="ML"),
   
-  lm(prev_yr_total_flowers_z ~
+  lme(prev_yr_total_flowers_z ~
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal)
+     random=~1|site, data = beedatafocal, method="ML")
   
 )
 
@@ -7099,15 +7525,15 @@ sem6<-psem(
         data = beedatafocal, family = binomial),
   
   # effects of climate on flowers
-  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+  lme(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal),
+     random=~1|site, data = beedatafocal, method="ML"),
   
-  lm(prev_yr_total_flowers_z ~
+  lme(prev_yr_total_flowers_z ~
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal)
+     random=~1|site, data = beedatafocal, method="ML")
   
 )
 
@@ -7125,15 +7551,15 @@ sem7<-psem(
         data = beedatafocal, family = binomial),
   
   # effects of climate on flowers
-  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+  lme(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal),
+     random=~1|site, data = beedatafocal, method="ML"),
   
-  lm(prev_yr_total_flowers_z ~
+  lme(prev_yr_total_flowers_z ~
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal)
+     random=~1|site, data = beedatafocal, method="ML")
   
 )
 
@@ -7152,15 +7578,15 @@ sem8<-psem(
         data = beedatafocal, family = binomial),
   
   # effects of climate on flowers
-  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+  lme(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal),
+     random=~1|site, data = beedatafocal, method="ML"),
   
-  lm(prev_yr_total_flowers_z ~
+  lme(prev_yr_total_flowers_z ~
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal)
+     random=~1|site, data = beedatafocal, method="ML")
   
 )
 
@@ -7178,15 +7604,15 @@ sem9<-psem(
         data = beedatafocal, family = binomial),
   
   # effects of climate on flowers
-  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+  lme(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal),
+     random=~1|site, data = beedatafocal, method="ML"),
   
-  lm(prev_yr_total_flowers_z ~
+  lme(prev_yr_total_flowers_z ~
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal)
+     random=~1|site, data = beedatafocal, method="ML")
   
 )
 
@@ -7203,15 +7629,15 @@ sem10<-psem(
         data = beedatafocal, family = binomial),
   
   # effects of climate on flowers
-  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+  lme(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal),
+     random=~1|site, data = beedatafocal, method="ML"),
   
-  lm(prev_yr_total_flowers_z ~
+  lme(prev_yr_total_flowers_z ~
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal)
+     random=~1|site, data = beedatafocal, method="ML")
   
 )
 
@@ -7234,15 +7660,15 @@ sem11<-psem(
         data = beedatafocal, family = binomial),
   
   # effects of climate on flowers
-  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+  lme(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal),
+     random=~1|site, data = beedatafocal, method="ML"),
   
-  lm(prev_yr_total_flowers_z ~
+  lme(prev_yr_total_flowers_z ~
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal)
+     random=~1|site, data = beedatafocal, method="ML")
   
 )
 
@@ -7261,15 +7687,15 @@ sem12<-psem(
         data = beedatafocal, family = binomial),
   
   # effects of climate on flowers
-  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+  lme(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal),
+     random=~1|site, data = beedatafocal, method="ML"),
   
-  lm(prev_yr_total_flowers_z ~
+  lme(prev_yr_total_flowers_z ~
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal)
+     random=~1|site, data = beedatafocal, method="ML")
   
 )
 
@@ -7287,15 +7713,15 @@ sem13<-psem(
         data = beedatafocal, family = binomial),
   
   # effects of climate on flowers
-  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+  lme(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal),
+     random=~1|site, data = beedatafocal, method="ML"),
   
-  lm(prev_yr_total_flowers_z ~
+  lme(prev_yr_total_flowers_z ~
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal)
+     random=~1|site, data = beedatafocal, method="ML")
   
 )
 
@@ -7314,15 +7740,15 @@ sem14<-psem(
         data = beedatafocal, family = binomial),
   
   # effects of climate on flowers
-  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+  lme(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal),
+     random=~1|site, data = beedatafocal, method="ML"),
   
-  lm(prev_yr_total_flowers_z ~
+  lme(prev_yr_total_flowers_z ~
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal)
+     random=~1|site, data = beedatafocal, method="ML")
   
 )
 
@@ -7545,12 +7971,18 @@ render_graph(graph)
 
 ############## (11) Hoplitis fulgida ################
 
-beedatafocal<-read.csv("focalbeedata_envdata_RMBLsexratios_2023-03-24.csv")
+beedatafocal<-read.csv("focalbeedata_envdata_RMBLsexratios_2023-03-29.csv")
 # subset to just include focal sites
 sitelist<-c("Almont","Almont Curve","Beaver","CDOT","Copper","Davids","Elko","Gothic","Hill","Little","Lypps","Mexican Cut","Rustlers","Seans","Tuttle","Willey")
 beedatafocal<-filter(beedatafocal, site %in% sitelist) 
+#beedatafocal<-filter(beedatafocal,year!=2016)
 
 beedatafocal<-filter(beedatafocal,genus_species=="Hoplitis fulgida")
+
+# # just look at mid-elevation sites
+# siteinfo<-read.csv("site_info.csv")
+# beedatafocal<-left_join(beedatafocal,siteinfo,by="site")
+# beedatafocal<-filter(beedatafocal, elev_group=="Mid")
 
 ### (full) SEM: all prior year's climate and floral predictor variables 
 semFull<-psem(
@@ -7564,15 +7996,15 @@ semFull<-psem(
         data = beedatafocal, family = binomial),
   
   # effects of climate on flowers
-  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+  lme(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal),
+     random=~1|site, data = beedatafocal, method="ML"),
   
-  lm(prev_yr_total_flowers_z ~
+  lme(prev_yr_total_flowers_z ~
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal)
+     random=~1|site, data = beedatafocal, method="ML")
   
 )
 
@@ -7589,15 +8021,15 @@ sem1<-psem(
         data = beedatafocal, family = binomial),
   
   # effects of climate on flowers
-  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+  lme(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal),
+     random=~1|site, data = beedatafocal, method="ML"),
   
-  lm(prev_yr_total_flowers_z ~
+  lme(prev_yr_total_flowers_z ~
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal)
+     random=~1|site, data = beedatafocal, method="ML")
   
 )
 
@@ -7615,15 +8047,15 @@ sem2<-psem(
         data = beedatafocal, family = binomial),
   
   # effects of climate on flowers
-  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+  lme(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal),
+     random=~1|site, data = beedatafocal, method="ML"),
   
-  lm(prev_yr_total_flowers_z ~
+  lme(prev_yr_total_flowers_z ~
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal)
+     random=~1|site, data = beedatafocal, method="ML")
   
 )
 
@@ -7640,15 +8072,15 @@ sem3<-psem(
         data = beedatafocal, family = binomial),
   
   # effects of climate on flowers
-  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+  lme(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal),
+     random=~1|site, data = beedatafocal, method="ML"),
   
-  lm(prev_yr_total_flowers_z ~
+  lme(prev_yr_total_flowers_z ~
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal)
+     random=~1|site, data = beedatafocal, method="ML")
   
 )
 
@@ -7665,15 +8097,15 @@ sem4<-psem(
         data = beedatafocal, family = binomial),
   
   # effects of climate on flowers
-  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+  lme(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal),
+     random=~1|site, data = beedatafocal, method="ML"),
   
-  lm(prev_yr_total_flowers_z ~
+  lme(prev_yr_total_flowers_z ~
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal)
+     random=~1|site, data = beedatafocal, method="ML")
   
 )
 
@@ -7690,15 +8122,15 @@ sem5<-psem(
         data = beedatafocal, family = binomial),
   
   # effects of climate on flowers
-  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+  lme(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal),
+     random=~1|site, data = beedatafocal, method="ML"),
   
-  lm(prev_yr_total_flowers_z ~
+  lme(prev_yr_total_flowers_z ~
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal)
+     random=~1|site, data = beedatafocal, method="ML")
   
 )
 
@@ -7716,15 +8148,15 @@ sem6<-psem(
         data = beedatafocal, family = binomial),
   
   # effects of climate on flowers
-  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+  lme(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal),
+     random=~1|site, data = beedatafocal, method="ML"),
   
-  lm(prev_yr_total_flowers_z ~
+  lme(prev_yr_total_flowers_z ~
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal)
+     random=~1|site, data = beedatafocal, method="ML")
   
 )
 
@@ -7742,15 +8174,15 @@ sem7<-psem(
         data = beedatafocal, family = binomial),
   
   # effects of climate on flowers
-  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+  lme(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal),
+     random=~1|site, data = beedatafocal, method="ML"),
   
-  lm(prev_yr_total_flowers_z ~
+  lme(prev_yr_total_flowers_z ~
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal)
+     random=~1|site, data = beedatafocal, method="ML")
   
 )
 
@@ -7769,15 +8201,15 @@ sem8<-psem(
         data = beedatafocal, family = binomial),
   
   # effects of climate on flowers
-  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+  lme(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal),
+     random=~1|site, data = beedatafocal, method="ML"),
   
-  lm(prev_yr_total_flowers_z ~
+  lme(prev_yr_total_flowers_z ~
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal)
+     random=~1|site, data = beedatafocal, method="ML")
   
 )
 
@@ -7795,15 +8227,15 @@ sem9<-psem(
         data = beedatafocal, family = binomial),
   
   # effects of climate on flowers
-  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+  lme(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal),
+     random=~1|site, data = beedatafocal, method="ML"),
   
-  lm(prev_yr_total_flowers_z ~
+  lme(prev_yr_total_flowers_z ~
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal)
+     random=~1|site, data = beedatafocal, method="ML")
   
 )
 
@@ -7820,15 +8252,15 @@ sem10<-psem(
         data = beedatafocal, family = binomial),
   
   # effects of climate on flowers
-  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+  lme(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal),
+     random=~1|site, data = beedatafocal, method="ML"),
   
-  lm(prev_yr_total_flowers_z ~
+  lme(prev_yr_total_flowers_z ~
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal)
+     random=~1|site, data = beedatafocal, method="ML")
   
 )
 
@@ -7851,15 +8283,15 @@ sem11<-psem(
         data = beedatafocal, family = binomial),
   
   # effects of climate on flowers
-  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+  lme(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal),
+     random=~1|site, data = beedatafocal, method="ML"),
   
-  lm(prev_yr_total_flowers_z ~
+  lme(prev_yr_total_flowers_z ~
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal)
+     random=~1|site, data = beedatafocal, method="ML")
   
 )
 
@@ -7878,15 +8310,15 @@ sem12<-psem(
         data = beedatafocal, family = binomial),
   
   # effects of climate on flowers
-  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+  lme(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal),
+     random=~1|site, data = beedatafocal, method="ML"),
   
-  lm(prev_yr_total_flowers_z ~
+  lme(prev_yr_total_flowers_z ~
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal)
+     random=~1|site, data = beedatafocal, method="ML")
   
 )
 
@@ -7904,15 +8336,15 @@ sem13<-psem(
         data = beedatafocal, family = binomial),
   
   # effects of climate on flowers
-  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+  lme(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal),
+     random=~1|site, data = beedatafocal, method="ML"),
   
-  lm(prev_yr_total_flowers_z ~
+  lme(prev_yr_total_flowers_z ~
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal)
+     random=~1|site, data = beedatafocal, method="ML")
   
 )
 
@@ -7931,15 +8363,15 @@ sem14<-psem(
         data = beedatafocal, family = binomial),
   
   # effects of climate on flowers
-  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+  lme(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal),
+     random=~1|site, data = beedatafocal, method="ML"),
   
-  lm(prev_yr_total_flowers_z ~
+  lme(prev_yr_total_flowers_z ~
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal)
+     random=~1|site, data = beedatafocal, method="ML")
   
 )
 
@@ -8034,12 +8466,18 @@ summary(sem14, .progressBar = F)
 
 ############## (12) Hoplitis robusta ################
 
-beedatafocal<-read.csv("focalbeedata_envdata_RMBLsexratios_2023-03-24.csv")
+beedatafocal<-read.csv("focalbeedata_envdata_RMBLsexratios_2023-03-29.csv")
 # subset to just include focal sites
 sitelist<-c("Almont","Almont Curve","Beaver","CDOT","Copper","Davids","Elko","Gothic","Hill","Little","Lypps","Mexican Cut","Rustlers","Seans","Tuttle","Willey")
 beedatafocal<-filter(beedatafocal, site %in% sitelist) 
 
 beedatafocal<-filter(beedatafocal,genus_species=="Hoplitis robusta")
+length(unique(beedatafocal$year))
+
+# # just look at mid-elevation sites
+# siteinfo<-read.csv("site_info.csv")
+# beedatafocal<-left_join(beedatafocal,siteinfo,by="site")
+# beedatafocal<-filter(beedatafocal, elev_group=="Mid")
 
 ### (full) SEM: all prior year's climate and floral predictor variables 
 semFull<-psem(
@@ -8053,15 +8491,15 @@ semFull<-psem(
         data = beedatafocal, family = binomial),
   
   # effects of climate on flowers
-  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+  lme(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal),
+     random=~1|site, data = beedatafocal, method="ML"),
   
-  lm(prev_yr_total_flowers_z ~
+  lme(prev_yr_total_flowers_z ~
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal)
+     random=~1|site, data = beedatafocal, method="ML")
   
 )
 
@@ -8078,15 +8516,15 @@ sem1<-psem(
         data = beedatafocal, family = binomial),
   
   # effects of climate on flowers
-  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+  lme(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal),
+     random=~1|site, data = beedatafocal, method="ML"),
   
-  lm(prev_yr_total_flowers_z ~
+  lme(prev_yr_total_flowers_z ~
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal)
+     random=~1|site, data = beedatafocal, method="ML")
   
 )
 
@@ -8104,15 +8542,15 @@ sem2<-psem(
         data = beedatafocal, family = binomial),
   
   # effects of climate on flowers
-  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+  lme(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal),
+     random=~1|site, data = beedatafocal, method="ML"),
   
-  lm(prev_yr_total_flowers_z ~
+  lme(prev_yr_total_flowers_z ~
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal)
+     random=~1|site, data = beedatafocal, method="ML")
   
 )
 
@@ -8129,15 +8567,15 @@ sem3<-psem(
         data = beedatafocal, family = binomial),
   
   # effects of climate on flowers
-  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+  lme(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal),
+     random=~1|site, data = beedatafocal, method="ML"),
   
-  lm(prev_yr_total_flowers_z ~
+  lme(prev_yr_total_flowers_z ~
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal)
+     random=~1|site, data = beedatafocal, method="ML")
   
 )
 
@@ -8154,15 +8592,15 @@ sem4<-psem(
         data = beedatafocal, family = binomial),
   
   # effects of climate on flowers
-  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+  lme(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal),
+     random=~1|site, data = beedatafocal, method="ML"),
   
-  lm(prev_yr_total_flowers_z ~
+  lme(prev_yr_total_flowers_z ~
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal)
+     random=~1|site, data = beedatafocal, method="ML")
   
 )
 
@@ -8179,15 +8617,15 @@ sem5<-psem(
         data = beedatafocal, family = binomial),
   
   # effects of climate on flowers
-  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+  lme(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal),
+     random=~1|site, data = beedatafocal, method="ML"),
   
-  lm(prev_yr_total_flowers_z ~
+  lme(prev_yr_total_flowers_z ~
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal)
+     random=~1|site, data = beedatafocal, method="ML")
   
 )
 
@@ -8205,15 +8643,15 @@ sem6<-psem(
         data = beedatafocal, family = binomial),
   
   # effects of climate on flowers
-  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+  lme(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal),
+     random=~1|site, data = beedatafocal, method="ML"),
   
-  lm(prev_yr_total_flowers_z ~
+  lme(prev_yr_total_flowers_z ~
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal)
+     random=~1|site, data = beedatafocal, method="ML")
   
 )
 
@@ -8231,15 +8669,15 @@ sem7<-psem(
         data = beedatafocal, family = binomial),
   
   # effects of climate on flowers
-  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+  lme(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal),
+     random=~1|site, data = beedatafocal, method="ML"),
   
-  lm(prev_yr_total_flowers_z ~
+  lme(prev_yr_total_flowers_z ~
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal)
+     random=~1|site, data = beedatafocal, method="ML")
   
 )
 
@@ -8258,15 +8696,15 @@ sem8<-psem(
         data = beedatafocal, family = binomial),
   
   # effects of climate on flowers
-  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+  lme(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal),
+     random=~1|site, data = beedatafocal, method="ML"),
   
-  lm(prev_yr_total_flowers_z ~
+  lme(prev_yr_total_flowers_z ~
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal)
+     random=~1|site, data = beedatafocal, method="ML")
   
 )
 
@@ -8284,15 +8722,15 @@ sem9<-psem(
         data = beedatafocal, family = binomial),
   
   # effects of climate on flowers
-  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+  lme(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal),
+     random=~1|site, data = beedatafocal, method="ML"),
   
-  lm(prev_yr_total_flowers_z ~
+  lme(prev_yr_total_flowers_z ~
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal)
+     random=~1|site, data = beedatafocal, method="ML")
   
 )
 
@@ -8309,15 +8747,15 @@ sem10<-psem(
         data = beedatafocal, family = binomial),
   
   # effects of climate on flowers
-  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+  lme(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal),
+     random=~1|site, data = beedatafocal, method="ML"),
   
-  lm(prev_yr_total_flowers_z ~
+  lme(prev_yr_total_flowers_z ~
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal)
+     random=~1|site, data = beedatafocal, method="ML")
   
 )
 
@@ -8340,15 +8778,15 @@ sem11<-psem(
         data = beedatafocal, family = binomial),
   
   # effects of climate on flowers
-  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+  lme(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal),
+     random=~1|site, data = beedatafocal, method="ML"),
   
-  lm(prev_yr_total_flowers_z ~
+  lme(prev_yr_total_flowers_z ~
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal)
+     random=~1|site, data = beedatafocal, method="ML")
   
 )
 
@@ -8367,15 +8805,15 @@ sem12<-psem(
         data = beedatafocal, family = binomial),
   
   # effects of climate on flowers
-  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+  lme(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal),
+     random=~1|site, data = beedatafocal, method="ML"),
   
-  lm(prev_yr_total_flowers_z ~
+  lme(prev_yr_total_flowers_z ~
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal)
+     random=~1|site, data = beedatafocal, method="ML")
   
 )
 
@@ -8393,15 +8831,15 @@ sem13<-psem(
         data = beedatafocal, family = binomial),
   
   # effects of climate on flowers
-  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+  lme(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal),
+     random=~1|site, data = beedatafocal, method="ML"),
   
-  lm(prev_yr_total_flowers_z ~
+  lme(prev_yr_total_flowers_z ~
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal)
+     random=~1|site, data = beedatafocal, method="ML")
   
 )
 
@@ -8420,15 +8858,15 @@ sem14<-psem(
         data = beedatafocal, family = binomial),
   
   # effects of climate on flowers
-  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+  lme(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal),
+     random=~1|site, data = beedatafocal, method="ML"),
   
-  lm(prev_yr_total_flowers_z ~
+  lme(prev_yr_total_flowers_z ~
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal)
+     random=~1|site, data = beedatafocal, method="ML")
   
 )
 
@@ -8652,12 +9090,18 @@ render_graph(graph)
 
 ############## (13) Osmia albolateralis ################
 
-beedatafocal<-read.csv("focalbeedata_envdata_RMBLsexratios_2023-03-24.csv")
+beedatafocal<-read.csv("focalbeedata_envdata_RMBLsexratios_2023-03-29.csv")
 # subset to just include focal sites
 sitelist<-c("Almont","Almont Curve","Beaver","CDOT","Copper","Davids","Elko","Gothic","Hill","Little","Lypps","Mexican Cut","Rustlers","Seans","Tuttle","Willey")
 beedatafocal<-filter(beedatafocal, site %in% sitelist) 
+#beedatafocal<-filter(beedatafocal,year!=2016)
 
 beedatafocal<-filter(beedatafocal,genus_species=="Osmia albolateralis")
+
+# # just look at mid-elevation sites
+# siteinfo<-read.csv("site_info.csv")
+# beedatafocal<-left_join(beedatafocal,siteinfo,by="site")
+# beedatafocal<-filter(beedatafocal, elev_group=="Mid")
 
 ### (full) SEM: all prior year's climate and floral predictor variables 
 semFull<-psem(
@@ -8671,15 +9115,15 @@ semFull<-psem(
         data = beedatafocal, family = binomial),
   
   # effects of climate on flowers
-  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+  lme(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal),
+     random=~1|site, data = beedatafocal, method="ML"),
   
-  lm(prev_yr_total_flowers_z ~
+  lme(prev_yr_total_flowers_z ~
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal)
+     random=~1|site, data = beedatafocal, method="ML")
   
 )
 
@@ -8696,15 +9140,15 @@ sem1<-psem(
         data = beedatafocal, family = binomial),
   
   # effects of climate on flowers
-  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+  lme(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal),
+     random=~1|site, data = beedatafocal, method="ML"),
   
-  lm(prev_yr_total_flowers_z ~
+  lme(prev_yr_total_flowers_z ~
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal)
+     random=~1|site, data = beedatafocal, method="ML")
   
 )
 
@@ -8722,15 +9166,15 @@ sem2<-psem(
         data = beedatafocal, family = binomial),
   
   # effects of climate on flowers
-  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+  lme(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal),
+     random=~1|site, data = beedatafocal, method="ML"),
   
-  lm(prev_yr_total_flowers_z ~
+  lme(prev_yr_total_flowers_z ~
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal)
+     random=~1|site, data = beedatafocal, method="ML")
   
 )
 
@@ -8747,15 +9191,15 @@ sem3<-psem(
         data = beedatafocal, family = binomial),
   
   # effects of climate on flowers
-  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+  lme(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal),
+     random=~1|site, data = beedatafocal, method="ML"),
   
-  lm(prev_yr_total_flowers_z ~
+  lme(prev_yr_total_flowers_z ~
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal)
+     random=~1|site, data = beedatafocal, method="ML")
   
 )
 
@@ -8772,15 +9216,15 @@ sem4<-psem(
         data = beedatafocal, family = binomial),
   
   # effects of climate on flowers
-  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+  lme(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal),
+     random=~1|site, data = beedatafocal, method="ML"),
   
-  lm(prev_yr_total_flowers_z ~
+  lme(prev_yr_total_flowers_z ~
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal)
+     random=~1|site, data = beedatafocal, method="ML")
   
 )
 
@@ -8797,15 +9241,15 @@ sem5<-psem(
         data = beedatafocal, family = binomial),
   
   # effects of climate on flowers
-  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+  lme(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal),
+     random=~1|site, data = beedatafocal, method="ML"),
   
-  lm(prev_yr_total_flowers_z ~
+  lme(prev_yr_total_flowers_z ~
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal)
+     random=~1|site, data = beedatafocal, method="ML")
   
 )
 
@@ -8823,15 +9267,15 @@ sem6<-psem(
         data = beedatafocal, family = binomial),
   
   # effects of climate on flowers
-  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+  lme(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal),
+     random=~1|site, data = beedatafocal, method="ML"),
   
-  lm(prev_yr_total_flowers_z ~
+  lme(prev_yr_total_flowers_z ~
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal)
+     random=~1|site, data = beedatafocal, method="ML")
   
 )
 
@@ -8849,15 +9293,15 @@ sem7<-psem(
         data = beedatafocal, family = binomial),
   
   # effects of climate on flowers
-  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+  lme(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal),
+     random=~1|site, data = beedatafocal, method="ML"),
   
-  lm(prev_yr_total_flowers_z ~
+  lme(prev_yr_total_flowers_z ~
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal)
+     random=~1|site, data = beedatafocal, method="ML")
   
 )
 
@@ -8876,15 +9320,15 @@ sem8<-psem(
         data = beedatafocal, family = binomial),
   
   # effects of climate on flowers
-  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+  lme(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal),
+     random=~1|site, data = beedatafocal, method="ML"),
   
-  lm(prev_yr_total_flowers_z ~
+  lme(prev_yr_total_flowers_z ~
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal)
+     random=~1|site, data = beedatafocal, method="ML")
   
 )
 
@@ -8902,15 +9346,15 @@ sem9<-psem(
         data = beedatafocal, family = binomial),
   
   # effects of climate on flowers
-  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+  lme(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal),
+     random=~1|site, data = beedatafocal, method="ML"),
   
-  lm(prev_yr_total_flowers_z ~
+  lme(prev_yr_total_flowers_z ~
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal)
+     random=~1|site, data = beedatafocal, method="ML")
   
 )
 
@@ -8927,15 +9371,15 @@ sem10<-psem(
         data = beedatafocal, family = binomial),
   
   # effects of climate on flowers
-  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+  lme(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal),
+     random=~1|site, data = beedatafocal, method="ML"),
   
-  lm(prev_yr_total_flowers_z ~
+  lme(prev_yr_total_flowers_z ~
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal)
+     random=~1|site, data = beedatafocal, method="ML")
   
 )
 
@@ -8958,15 +9402,15 @@ sem11<-psem(
         data = beedatafocal, family = binomial),
   
   # effects of climate on flowers
-  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+  lme(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal),
+     random=~1|site, data = beedatafocal, method="ML"),
   
-  lm(prev_yr_total_flowers_z ~
+  lme(prev_yr_total_flowers_z ~
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal)
+     random=~1|site, data = beedatafocal, method="ML")
   
 )
 
@@ -8985,15 +9429,15 @@ sem12<-psem(
         data = beedatafocal, family = binomial),
   
   # effects of climate on flowers
-  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+  lme(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal),
+     random=~1|site, data = beedatafocal, method="ML"),
   
-  lm(prev_yr_total_flowers_z ~
+  lme(prev_yr_total_flowers_z ~
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal)
+     random=~1|site, data = beedatafocal, method="ML")
   
 )
 
@@ -9011,15 +9455,15 @@ sem13<-psem(
         data = beedatafocal, family = binomial),
   
   # effects of climate on flowers
-  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+  lme(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal),
+     random=~1|site, data = beedatafocal, method="ML"),
   
-  lm(prev_yr_total_flowers_z ~
+  lme(prev_yr_total_flowers_z ~
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal)
+     random=~1|site, data = beedatafocal, method="ML")
   
 )
 
@@ -9038,15 +9482,15 @@ sem14<-psem(
         data = beedatafocal, family = binomial),
   
   # effects of climate on flowers
-  lm(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
+  lme(prev_yr_floral_days_z ~ prev_yr_total_flowers_z +
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal),
+     random=~1|site, data = beedatafocal, method="ML"),
   
-  lm(prev_yr_total_flowers_z ~
+  lme(prev_yr_total_flowers_z ~
        prev_yr_doy_bare_ground_z +
        prev_yr_accum_summer_precip_cm_z,
-     data = beedatafocal)
+     random=~1|site, data = beedatafocal, method="ML")
   
 )
 
