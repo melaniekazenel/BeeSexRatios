@@ -177,43 +177,59 @@ library(ggtext)
 dev.off()
 
 # plot sex ~ snowmelt date
-p1a<-visreg(m15,"doy_bare_ground_z",type="conditional", scale="response", gg=TRUE, line=list(col="black")) 
-p1<- p1a + xlab("Snowmelt date") + ylab("Sex \n(female=1, male=0)") +
+summary_snowmelt<-beedatafocal %>% group_by(doy_bare_ground_z, sex_binom) %>% summarise(count=n())
+
+p1a<-visreg(m15,"doy_bare_ground_z",type="conditional", scale="response", rug=FALSE, partial=FALSE, gg=TRUE, line=list(col="black")) 
+p1<- p1a + xlab("Snowmelt date") + ylab("Proportion of females") +
   theme_linedraw(base_size = 14) + 
   theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank())+
   annotate("text", x = 1, y = .4, label = expression(atop(italic("\u03B2")==-0.32, italic(P)*" < 0.0001"))) +
-  ggtitle("a")
-#p1
+  ggtitle("a") +
+  geom_point(aes(x=doy_bare_ground_z, y=sex_binom,size=count), data=summary_snowmelt) +
+  labs(size="Count")
+p1
 
 # plot sex ~ summer precipitation
-p2a<-visreg(m15,"accum_summer_precip_cm_z",type="conditional", scale="response", gg=TRUE, line=list(col="black"))
-p2<- p2a + xlab("Summer precipitation") + ylab("Sex \n(female=1, male=0)") +
+summary_precip<-beedatafocal %>% group_by(accum_summer_precip_cm_z, sex_binom) %>% summarise(count=n())
+
+p2a<-visreg(m15,"accum_summer_precip_cm_z",type="conditional", scale="response", rug=FALSE, partial=FALSE, gg=TRUE, line=list(col="black"))
+p2<- p2a + xlab("Summer precipitation") + ylab("Proportion of females") +
   theme_linedraw(base_size = 14) + 
   theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank()) +
   annotate("text", x = 1, y = .4, label = expression(atop(italic("\u03B2")==0.16, italic(P)*" < 0.0001"))) +
-  ggtitle("b")
-#p2
+  ggtitle("b") +
+  geom_point(aes(x=accum_summer_precip_cm_z, y=sex_binom,size=count), data=summary_precip) +
+  labs(size="Count")
+p2
 
 # plot sex ~ prior year's snowmelt date
-p3a<-visreg(m15,"prev_yr_doy_bare_ground_z",type="conditional", scale="response", gg=TRUE, line=list(col="black")) 
-p3<-p3a + xlab("Prior year's \nsnowmelt date") + ylab("Sex \n(female=1, male=0)") +
+summary_snowmeltprior<-beedatafocal %>% group_by(prev_yr_doy_bare_ground_z, sex_binom) %>% summarise(count=n())
+
+p3a<-visreg(m15,"prev_yr_doy_bare_ground_z",type="conditional", scale="response", rug=FALSE, partial=FALSE, gg=TRUE, line=list(col="black")) 
+p3<-p3a + xlab("Prior year's \nsnowmelt date") + ylab("Proportion of females") +
   theme_linedraw(base_size = 14) + 
   theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank()) +
   annotate("text", x = 1, y = .25, label = expression(atop(italic("\u03B2")==0.58, italic(P)*" < 0.0001"))) +
-  ggtitle("c")
-#p3
+  ggtitle("c") +
+  geom_point(aes(x=prev_yr_doy_bare_ground_z, y=sex_binom,size=count), data=summary_snowmeltprior) +
+  labs(size="Count")
+p3
 
 # plot sex ~ prior year's summer precipitation
-p4a<-visreg(m15,"prev_yr_accum_summer_precip_cm_z",type="conditional", scale="response", gg=TRUE, line=list(col="black")) 
-p4<- p4a + xlab("Prior year's \nsummer precipitation") + ylab("Sex \n(female=1, male=0)") +
+summary_precipprior<-beedatafocal %>% group_by(prev_yr_accum_summer_precip_cm_z, sex_binom) %>% summarise(count=n())
+
+p4a<-visreg(m15,"prev_yr_accum_summer_precip_cm_z",type="conditional", scale="response", rug=FALSE, partial=FALSE, gg=TRUE, line=list(col="black")) 
+p4<- p4a + xlab("Prior year's \nsummer precipitation") + ylab("Proportion of females") +
   theme_linedraw(base_size = 14) + 
   theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank()) +
   annotate("text", x = 1, y = .4, label = expression(atop(italic("\u03B2")==-0.09, italic(P)*" < 0.0001"))) +
-  ggtitle("d")
-#p4
+  ggtitle("d") +
+  geom_point(aes(x=prev_yr_accum_summer_precip_cm_z, y=sex_binom,size=count), data=summary_precipprior) +
+  labs(size="Count")
+p4
 
 # aggregate panels into a single figure
-plot<-p1 + p2 + p3 + p4 + plot_layout(ncol = 2)
+plot<-p1 + p2 + p3 + p4 + plot_layout(ncol = 2, guides = "collect")
 
 # remove axis text and tick marks where they aren't needed
 plot[[2]] = plot[[2]] + theme(axis.text.y = element_blank(),
@@ -224,7 +240,7 @@ plot[[4]] = plot[[4]] + theme(axis.text.y = element_blank(),
                               axis.title.y = element_blank() )
 plot
 
-#ggsave("glmm_allspecies_parameters.png", plot,width=6,height=7,units = c("in"),dpi = 600)
+#ggsave("glmm_allspecies_parameters_2023-12-02.png", plot,width=7,height=7,units = c("in"),dpi = 600)
 
 
 ##### GLMMs: For individual species, how do sex ratios vary with climate? #####
